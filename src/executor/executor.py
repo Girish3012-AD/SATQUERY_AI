@@ -134,6 +134,9 @@ class ExecutionEngine:
         if step.operation == "specialist_inference":
             return self.execute_specialist(step, inputs)
 
+        if step.operation == "temporal_analysis":
+            return self.execute_specialist(step, inputs)
+
         if step.operation == "verification":
             return self.execute_verification(step)
 

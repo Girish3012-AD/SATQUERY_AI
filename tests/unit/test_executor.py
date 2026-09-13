@@ -284,3 +284,61 @@ def test_executor_verification_checks_required_modalities():
     assert result.success is False
     assert result.output["status"] == "abstain"
     assert "sar" in result.output["reasons"][0]
+
+
+def test_executor_runs_temporal_analysis_specialist(tmp_path):
+    import numpy as np
+    import rasterio
+    from rasterio.transform import from_origin
+
+    from src.executor.change_specialist import ChangeSpecialist
+    from src.planner.evidence_planner import PlanStep
+
+    before = tmp_path / "before.tif"
+    after = tmp_path / "after.tif"
+
+    before_data = np.zeros((10, 10), dtype=np.uint16)
+    after_data = before_data.copy()
+    after_data[2:6, 2:6] = 1000
+
+    transform = from_origin(500000, 2000, 10, 10)
+
+    for path, data in [(before, before_data), (after, after_data)]:
+        with rasterio.open(
+            path,
+            "w",
+            driver="GTiff",
+            height=10,
+            width=10,
+            count=1,
+            dtype="uint16",
+            crs="EPSG:32643",
+            transform=transform,
+        ) as dataset:
+            dataset.write(data, 1)
+
+    registry = EvidenceRegistry()
+    engine = ExecutionEngine(registry)
+
+    engine.register_specialist(ChangeSpecialist())
+
+    step = PlanStep(
+        step_id="T1",
+        task="temporal_analysis",
+        operation="temporal_analysis",
+    )
+
+    result = engine.execute_step(
+        step,
+        inputs=[str(before), str(after)],
+    )
+
+    assert result.success is True
+    assert result.task == "temporal_analysis"
+    assert len(result.evidence_ids) == 1
+
+    evidence = registry.get(result.evidence_ids[0])
+
+    assert evidence.task == "temporal_analysis"
+    assert evidence.result["changed"] is True
+    assert evidence.result["changed_pixels"] > 0
