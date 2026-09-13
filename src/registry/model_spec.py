@@ -9,6 +9,8 @@ class ModelSpec(BaseModel):
 
     status: str
 
+    specialist_name: str | None = None
+
     checkpoint: str | None = None
     version: str | None = None
 

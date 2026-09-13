@@ -93,6 +93,9 @@ class EvidencePlanner:
                     step_id="T1",
                     task="vqa",
                     operation="visual_question_answering",
+                    parameters={
+                        "query": task_spec.query,
+                    },
                 )
             )
 
