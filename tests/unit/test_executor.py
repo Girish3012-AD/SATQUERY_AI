@@ -116,3 +116,171 @@ def test_full_plan_stops_when_step_fails():
     assert len(results) == 1
     assert results[0].success is False
     assert registry.count() == 0
+
+
+def test_executor_runs_verification_step():
+    from src.executor.executor import ExecutionEngine
+    from src.planner.evidence_planner import PlanStep
+    from src.schemas.evidence import Evidence
+    from src.evidence.registry import EvidenceRegistry
+
+    registry = EvidenceRegistry()
+
+    evidence = Evidence(
+        evidence_id="E_VERIFY_1",
+        source="test",
+        task="building_detection",
+        model="test-model",
+        sensor="test-sensor",
+        modality="optical",
+        result={"detected": True},
+        confidence=0.90,
+    )
+
+    registry.add(evidence)
+
+    engine = ExecutionEngine(registry)
+
+    step = PlanStep(
+        step_id="T2",
+        task="verification",
+        operation="verification",
+    )
+
+    result = engine.execute_step(step)
+
+    assert result.success is True
+    assert result.task == "verification"
+    assert result.output["status"] == "verified"
+    assert result.output["verified"] is True
+    assert result.output["confidence"] == 0.90
+    assert result.evidence_ids == ["E_VERIFY_1"]
+
+
+def test_executor_verification_fails_on_low_confidence():
+    from src.executor.executor import ExecutionEngine
+    from src.planner.evidence_planner import PlanStep
+    from src.schemas.evidence import Evidence
+    from src.evidence.registry import EvidenceRegistry
+
+    registry = EvidenceRegistry()
+
+    evidence = Evidence(
+        evidence_id="E_LOW_1",
+        source="test",
+        task="building_detection",
+        model="test-model",
+        sensor="test-sensor",
+        modality="optical",
+        result={"detected": True},
+        confidence=0.30,
+    )
+
+    registry.add(evidence)
+
+    engine = ExecutionEngine(registry)
+
+    step = PlanStep(
+        step_id="T2",
+        task="verification",
+        operation="verification",
+    )
+
+    result = engine.execute_step(step)
+
+    assert result.success is False
+    assert result.task == "verification"
+    assert result.output["status"] == "low_confidence"
+    assert result.output["verified"] is False
+    assert result.output["recommended_action"] == (
+        "request_additional_evidence"
+    )
+
+
+def test_executor_verification_detects_conflicting_evidence():
+    from src.executor.executor import ExecutionEngine
+    from src.planner.evidence_planner import PlanStep
+    from src.schemas.evidence import Evidence
+    from src.evidence.registry import EvidenceRegistry
+
+    registry = EvidenceRegistry()
+
+    registry.add(
+        Evidence(
+            evidence_id="E_TRUE",
+            source="test",
+            task="building_detection",
+            model="model-a",
+            sensor="test-sensor",
+            modality="optical",
+            result={"detected": True},
+            confidence=0.90,
+        )
+    )
+
+    registry.add(
+        Evidence(
+            evidence_id="E_FALSE",
+            source="test",
+            task="building_detection",
+            model="model-b",
+            sensor="test-sensor",
+            modality="optical",
+            result={"detected": False},
+            confidence=0.90,
+        )
+    )
+
+    engine = ExecutionEngine(registry)
+
+    step = PlanStep(
+        step_id="T3",
+        task="verification",
+        operation="verification",
+    )
+
+    result = engine.execute_step(step)
+
+    assert result.success is False
+    assert result.output["status"] == "abstain"
+    assert result.output["verified"] is False
+    assert len(result.output["conflicts"]) == 1
+
+
+def test_executor_verification_checks_required_modalities():
+    from src.executor.executor import ExecutionEngine
+    from src.planner.evidence_planner import PlanStep
+    from src.schemas.evidence import Evidence
+    from src.evidence.registry import EvidenceRegistry
+
+    registry = EvidenceRegistry()
+
+    registry.add(
+        Evidence(
+            evidence_id="E_OPTICAL",
+            source="test",
+            task="sar_analysis",
+            model="optical-model",
+            sensor="test-sensor",
+            modality="optical",
+            result={"detected": True},
+            confidence=0.90,
+        )
+    )
+
+    engine = ExecutionEngine(registry)
+
+    step = PlanStep(
+        step_id="T2",
+        task="verification",
+        operation="verification",
+        parameters={
+            "required_modalities": ["optical", "sar"],
+        },
+    )
+
+    result = engine.execute_step(step)
+
+    assert result.success is False
+    assert result.output["status"] == "abstain"
+    assert "sar" in result.output["reasons"][0]

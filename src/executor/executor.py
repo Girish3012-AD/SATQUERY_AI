@@ -1,8 +1,8 @@
-from typing import Any
+from __future__ import annotations
 
-from src.evidence import EvidenceRegistry
-from src.planner import EvidencePlan, PlanStep
-from src.schemas import Evidence
+from src.evidence.registry import EvidenceRegistry
+from src.planner.evidence_planner import EvidencePlan, PlanStep
+from src.verifier.georeason_verifier import GeoReasonVerifier
 
 from .execution_result import ExecutionResult
 from .specialist import Specialist
@@ -10,19 +10,22 @@ from .specialist import Specialist
 
 class ExecutionEngine:
     """
-    Executes an EvidencePlan using registered specialist implementations.
+    Executes an EvidencePlan using registered specialist implementations
+    and the GeoReason evidence verifier.
 
-    Specialist inference is delegated to real Specialist implementations.
-    Deterministic GIS operations can be added independently.
+    Specialist inference produces Evidence.
+    Verification evaluates the accumulated Evidence.
     """
 
     def __init__(
         self,
         evidence_registry: EvidenceRegistry,
         specialists: dict[str, Specialist] | None = None,
+        verifier: GeoReasonVerifier | None = None,
     ) -> None:
         self.evidence_registry = evidence_registry
         self.specialists = specialists or {}
+        self.verifier = verifier or GeoReasonVerifier()
 
     def register_specialist(self, specialist: Specialist) -> None:
         if specialist.capability in self.specialists:
@@ -66,6 +69,63 @@ class ExecutionEngine:
             message="Specialist execution completed.",
         )
 
+    def execute_verification(
+        self,
+        step: PlanStep,
+    ) -> ExecutionResult:
+        """
+        Verify all evidence accumulated in the EvidenceRegistry.
+
+        Verification is performed after evidence-producing steps.
+        """
+
+        evidence = self.evidence_registry.all()
+
+        expected_task = step.parameters.get("expected_task")
+
+        if expected_task is not None and not isinstance(
+            expected_task,
+            str,
+        ):
+            return ExecutionResult(
+                success=False,
+                step_id=step.step_id,
+                task=step.task,
+                message="expected_task must be a string.",
+            )
+
+        required_modalities_value = step.parameters.get(
+            "required_modalities",
+            [],
+        )
+
+        if not isinstance(required_modalities_value, list):
+            return ExecutionResult(
+                success=False,
+                step_id=step.step_id,
+                task=step.task,
+                message="required_modalities must be a list.",
+            )
+
+        verification = self.verifier.verify(
+            evidence,
+            expected_task=expected_task,
+            required_modalities=required_modalities_value,
+        )
+
+        return ExecutionResult(
+            success=verification.verified,
+            step_id=step.step_id,
+            task=step.task,
+            output=verification.model_dump(),
+            evidence_ids=verification.evidence_ids,
+            message=(
+                f"Verification status: {verification.status}. "
+                f"Recommended action: "
+                f"{verification.recommended_action or 'none'}."
+            ),
+        )
+
     def execute_step(
         self,
         step: PlanStep,
@@ -73,6 +133,9 @@ class ExecutionEngine:
     ) -> ExecutionResult:
         if step.operation == "specialist_inference":
             return self.execute_specialist(step, inputs)
+
+        if step.operation == "verification":
+            return self.execute_verification(step)
 
         return ExecutionResult(
             success=False,
