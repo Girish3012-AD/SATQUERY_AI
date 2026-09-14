@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from shapely.geometry.base import BaseGeometry
+from pyproj import CRS
 
 from src.evidence import EvidenceRegistry
 from src.geospatial import (
@@ -78,6 +79,98 @@ class GISEvidenceExecutor:
 
         return evidence
 
+    @staticmethod
+    def _crs_from_evidence(evidence: Evidence) -> CRS | None:
+        """Extract CRS metadata from specialist-produced evidence."""
+
+        candidates = []
+
+        if isinstance(evidence.result, dict):
+            candidates.append(evidence.result.get("crs"))
+
+        if isinstance(evidence.metadata, dict):
+            candidates.append(evidence.metadata.get("crs"))
+
+        if isinstance(evidence.provenance, dict):
+            candidates.append(evidence.provenance.get("crs"))
+
+        for value in candidates:
+            if value:
+                try:
+                    return CRS.from_user_input(value)
+                except Exception as exc:
+                    raise ValueError(
+                        f"Evidence '{evidence.evidence_id}' has invalid CRS: "
+                        f"{value!r}"
+                    ) from exc
+
+        return None
+
+    def _validate_projected_crs(
+        self,
+        evidence: Evidence,
+        operation: str,
+    ) -> CRS:
+        """Require a projected CRS for metre-based GIS operations."""
+
+        crs = self._crs_from_evidence(evidence)
+
+        if crs is None:
+            raise ValueError(
+                f"GIS {operation} requires CRS metadata on evidence "
+                f"'{evidence.evidence_id}'."
+            )
+
+        if not crs.is_projected:
+            raise ValueError(
+                f"GIS {operation} requires a projected CRS with linear "
+                f"units, but evidence '{evidence.evidence_id}' uses "
+                f"geographic CRS '{crs.to_string()}'."
+            )
+
+        return crs
+
+    def _validate_compatible_crs(
+        self,
+        first: Evidence,
+        second: Evidence,
+        operation: str,
+    ) -> tuple[CRS, CRS]:
+        """Require both GIS inputs to have matching projected CRS."""
+
+        first_crs = self._validate_projected_crs(first, operation)
+        second_crs = self._validate_projected_crs(second, operation)
+
+        if first_crs != second_crs:
+            raise ValueError(
+                f"GIS {operation} requires matching CRS. "
+                f"'{first.evidence_id}' uses {first_crs.to_string()}, "
+                f"while '{second.evidence_id}' uses "
+                f"{second_crs.to_string()}."
+            )
+
+        return first_crs, second_crs
+
+    def _validate_distance_parameter(
+        self,
+        distance_m: float,
+    ) -> float:
+        """Validate a metre-based buffer distance."""
+
+        distance_m = float(distance_m)
+
+        if distance_m < 0:
+            raise ValueError(
+                "Buffer distance cannot be negative."
+            )
+
+        if not distance_m == distance_m:
+            raise ValueError(
+                "Buffer distance must be finite."
+            )
+
+        return distance_m
+
     def execute(
         self,
         operation: str,
@@ -108,11 +201,20 @@ class GISEvidenceExecutor:
                 )
 
             source = geometry_evidence[-1]
+            crs = self._validate_projected_crs(
+                source,
+                operation,
+            )
+
+            distance_m = self._validate_distance_parameter(
+                distance_m
+            )
+
             geometry = self._geometry_from_evidence(source)
 
             result_geometry = buffer_geometry(
                 geometry,
-                float(distance_m),
+                distance_m,
             )
 
             return self._make_evidence(
@@ -121,8 +223,9 @@ class GISEvidenceExecutor:
                 result_geometry=result_geometry,
                 measurement={
                     "operation": "buffer",
-                    "distance_m": float(distance_m),
+                    "distance_m": distance_m,
                     "area_m2": calculate_area(result_geometry),
+                    "crs": crs.to_string(),
                 },
             )
 
@@ -133,8 +236,17 @@ class GISEvidenceExecutor:
                     "evidence objects."
                 )
 
-            first = self._geometry_from_evidence(geometry_evidence[-2])
-            second = self._geometry_from_evidence(geometry_evidence[-1])
+            first_evidence = geometry_evidence[-2]
+            second_evidence = geometry_evidence[-1]
+
+            crs, _ = self._validate_compatible_crs(
+                first_evidence,
+                second_evidence,
+                operation,
+            )
+
+            first = self._geometry_from_evidence(first_evidence)
+            second = self._geometry_from_evidence(second_evidence)
 
             result_geometry = intersect_geometries(first, second)
 
@@ -146,6 +258,7 @@ class GISEvidenceExecutor:
                     "operation": "intersection",
                     "area_m2": calculate_area(result_geometry),
                     "is_empty": bool(result_geometry.is_empty),
+                    "crs": crs.to_string(),
                 },
             )
 
@@ -156,8 +269,17 @@ class GISEvidenceExecutor:
                     "evidence objects."
                 )
 
-            first = self._geometry_from_evidence(geometry_evidence[-2])
-            second = self._geometry_from_evidence(geometry_evidence[-1])
+            first_evidence = geometry_evidence[-2]
+            second_evidence = geometry_evidence[-1]
+
+            crs, _ = self._validate_compatible_crs(
+                first_evidence,
+                second_evidence,
+                operation,
+            )
+
+            first = self._geometry_from_evidence(first_evidence)
+            second = self._geometry_from_evidence(second_evidence)
 
             distance = calculate_distance(first, second)
 
@@ -168,12 +290,18 @@ class GISEvidenceExecutor:
                 measurement={
                     "operation": "distance",
                     "distance_m": float(distance),
+                    "crs": crs.to_string(),
                 },
                 result={"distance_m": float(distance)},
             )
 
         if operation == "area":
             source = geometry_evidence[-1]
+            crs = self._validate_projected_crs(
+                source,
+                operation,
+            )
+
             geometry = self._geometry_from_evidence(source)
 
             area = calculate_area(geometry)
@@ -185,6 +313,7 @@ class GISEvidenceExecutor:
                 measurement={
                     "operation": "area",
                     "area_m2": float(area),
+                    "crs": crs.to_string(),
                 },
                 result={"area_m2": float(area)},
             )
@@ -245,6 +374,11 @@ class GISEvidenceExecutor:
             },
             metadata={
                 "deterministic": True,
+                "crs": (
+                    self._crs_from_evidence(source_evidence[0]).to_string()
+                    if self._crs_from_evidence(source_evidence[0]) is not None
+                    else None
+                ),
             },
         )
 

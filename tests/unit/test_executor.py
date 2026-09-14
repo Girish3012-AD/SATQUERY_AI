@@ -362,6 +362,7 @@ def test_executor_runs_gis_intersection_step():
                 "type": "geojson",
                 "geometry": box(0, 0, 10, 10).__geo_interface__,
             },
+                result={"crs": "EPSG:32616"},
             confidence=0.95,
         )
     )
@@ -377,6 +378,7 @@ def test_executor_runs_gis_intersection_step():
                 "type": "geojson",
                 "geometry": box(5, 5, 15, 15).__geo_interface__,
             },
+                result={"crs": "EPSG:32616"},
             confidence=0.90,
         )
     )
@@ -425,6 +427,7 @@ def test_executor_runs_gis_buffer_step():
                 "type": "geojson",
                 "geometry": box(0, 0, 10, 10).__geo_interface__,
             },
+                result={"crs": "EPSG:32616"},
             confidence=0.92,
         )
     )
