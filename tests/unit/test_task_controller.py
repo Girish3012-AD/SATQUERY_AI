@@ -78,3 +78,52 @@ def test_negative_input_count_rejected():
         assert str(exc) == "input_count cannot be negative."
     else:
         raise AssertionError("Expected ValueError")
+
+
+def test_building_area_query():
+    controller = TaskController()
+
+    spec = controller.build_task_spec(
+        "What is the total detected building area in this image?",
+        1,
+    )
+
+    assert spec.task_type == "spatial_analysis"
+    assert "building_detection" in spec.required_capabilities
+    assert "area" in spec.spatial_operations
+
+
+def test_distance_from_query():
+    controller = TaskController()
+
+    spec = controller.build_task_spec(
+        "How far are the detected buildings from the reference area?",
+        1,
+    )
+
+    assert spec.task_type == "spatial_analysis"
+    assert "building_detection" in spec.required_capabilities
+    assert "distance" in spec.spatial_operations
+
+
+def test_distance_query_does_not_infer_area_from_reference_area():
+    controller = TaskController()
+
+    spec = controller.build_task_spec(
+        "How far are the detected buildings from the reference area?",
+        1,
+    )
+
+    assert spec.spatial_operations == ["distance"]
+    assert "area" not in spec.spatial_operations
+
+
+def test_explicit_area_measurement_remains_area_operation():
+    controller = TaskController()
+
+    spec = controller.build_task_spec(
+        "What is the total detected building area in this image?",
+        1,
+    )
+
+    assert spec.spatial_operations == ["area"]

@@ -67,6 +67,13 @@ class TaskController:
         "intersection": "intersection",
         "overlap": "intersection",
         "distance": "distance",
+        "how far": "distance",
+        "distance from": "distance",
+        "distance between": "distance",
+        "how close": "distance",
+        "total area": "area",
+        "how much area": "area",
+        "covered area": "area",
     }
 
     def build_task_spec(
@@ -127,10 +134,91 @@ class TaskController:
         # ---------------------------------------------------------
         # Spatial operations
         # ---------------------------------------------------------
+        #
+        # Match spatial intent while distinguishing an actual area
+        # measurement from the word "area" used to describe a
+        # reference geometry in another operation.
+        #
+        # Example:
+        #   "total building area" -> area
+        #   "how far ... from the reference area" -> distance
+        # ---------------------------------------------------------
+        spatial_matches: list[tuple[int, str, str]] = []
+
         for keyword, operation in self.SPATIAL_PATTERNS.items():
             if keyword in normalized:
-                if operation not in spatial_operations:
-                    spatial_operations.append(operation)
+                spatial_matches.append(
+                    (len(keyword), keyword, operation)
+                )
+
+        spatial_matches.sort(
+            key=lambda item: item[0],
+            reverse=True,
+        )
+
+        has_distance_intent = any(
+            operation == "distance"
+            for _, _, operation in spatial_matches
+        )
+
+        explicit_area_measurement = any(
+            phrase in normalized
+            for phrase in (
+                "total area",
+                "how much area",
+                "area of",
+                "area covered",
+                "area covered by",
+                "area detected",
+                "area occupied",
+                "area of the detected",
+                "total detected building area",
+                "total building area",
+                "detected building area",
+                "building area",
+                "area occupied by buildings",
+                "area covered by buildings",
+                "area occupied by the detected buildings",
+                "area covered by the detected buildings",
+            )
+        )
+
+        for _, keyword, operation in spatial_matches:
+            if (
+                operation == "area"
+                and has_distance_intent
+                and not explicit_area_measurement
+            ):
+                continue
+
+            if operation not in spatial_operations:
+                spatial_operations.append(operation)
+
+        # Explicit area-measurement intent can occur in phrases such as
+        # "total detected building area", where the word "area" is
+        # meaningful as a GIS measurement but does not match one of the
+        # fixed SPATIAL_PATTERNS above.
+        #
+        # Do not infer GIS area merely because "area" appears in a
+        # reference geometry such as "flooded areas".
+        if explicit_area_measurement:
+            # "building area", "flood area", etc. can describe a
+            # reference geometry rather than request an area calculation.
+            # If the query already contains a stronger spatial relation,
+            # such as distance or intersection, preserve that relation
+            # and do not add a second area operation.
+            relation_operations = {
+                "distance",
+                "intersection",
+                "buffer",
+            }
+
+            if not any(
+                operation in relation_operations
+                for operation in spatial_operations
+            ):
+                if "area" not in spatial_operations:
+                    spatial_operations.append("area")
 
         # ---------------------------------------------------------
         # Extract distance
