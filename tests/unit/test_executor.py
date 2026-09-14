@@ -342,3 +342,110 @@ def test_executor_runs_temporal_analysis_specialist(tmp_path):
     assert evidence.task == "temporal_analysis"
     assert evidence.result["changed"] is True
     assert evidence.result["changed_pixels"] > 0
+
+
+def test_executor_runs_gis_intersection_step():
+    from shapely.geometry import box
+
+    from src.planner.evidence_planner import PlanStep
+
+    registry = EvidenceRegistry()
+
+    registry.add(
+        Evidence(
+            evidence_id="E_BUILDING_GEOM",
+            source="test-fixture",
+            task="building_detection",
+            model="test-building",
+            modality="optical",
+            geometry={
+                "type": "geojson",
+                "geometry": box(0, 0, 10, 10).__geo_interface__,
+            },
+            confidence=0.95,
+        )
+    )
+
+    registry.add(
+        Evidence(
+            evidence_id="E_FLOOD_GEOM",
+            source="test-fixture",
+            task="flood_detection",
+            model="test-flood",
+            modality="sar",
+            geometry={
+                "type": "geojson",
+                "geometry": box(5, 5, 15, 15).__geo_interface__,
+            },
+            confidence=0.90,
+        )
+    )
+
+    engine = ExecutionEngine(registry)
+
+    step = PlanStep(
+        step_id="T3",
+        task="gis_intersection",
+        operation="intersection",
+        parameters={},
+        depends_on=["T1", "T2"],
+    )
+
+    result = engine.execute_step(step)
+
+    assert result.success is True
+    assert result.task == "gis_intersection"
+    assert len(result.evidence_ids) == 1
+
+    evidence = registry.get(result.evidence_ids[0])
+
+    assert evidence.task == "gis_intersection"
+    assert evidence.measurement["area_m2"] == 25.0
+    assert evidence.provenance["source_evidence_ids"] == [
+        "E_BUILDING_GEOM",
+        "E_FLOOD_GEOM",
+    ]
+
+
+def test_executor_runs_gis_buffer_step():
+    from shapely.geometry import box
+
+    from src.planner.evidence_planner import PlanStep
+
+    registry = EvidenceRegistry()
+
+    registry.add(
+        Evidence(
+            evidence_id="E_REFERENCE",
+            source="test-fixture",
+            task="reference_detection",
+            model="test-model",
+            modality="optical",
+            geometry={
+                "type": "geojson",
+                "geometry": box(0, 0, 10, 10).__geo_interface__,
+            },
+            confidence=0.92,
+        )
+    )
+
+    engine = ExecutionEngine(registry)
+
+    step = PlanStep(
+        step_id="T2",
+        task="gis_buffer",
+        operation="buffer",
+        parameters={"distance_m": 5},
+        depends_on=["T1"],
+    )
+
+    result = engine.execute_step(step)
+
+    assert result.success is True
+    assert result.task == "gis_buffer"
+
+    evidence = registry.get(result.evidence_ids[0])
+
+    assert evidence.measurement["distance_m"] == 5.0
+    assert evidence.measurement["area_m2"] > 100.0
+    assert evidence.metadata["deterministic"] is True

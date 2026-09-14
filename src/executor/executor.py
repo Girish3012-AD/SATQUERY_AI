@@ -5,6 +5,7 @@ from src.planner.evidence_planner import EvidencePlan, PlanStep
 from src.verifier.georeason_verifier import GeoReasonVerifier
 
 from .execution_result import ExecutionResult
+from .gis_executor import GISEvidenceExecutor
 from .specialist import Specialist
 
 
@@ -26,6 +27,7 @@ class ExecutionEngine:
         self.evidence_registry = evidence_registry
         self.specialists = specialists or {}
         self.verifier = verifier or GeoReasonVerifier()
+        self.gis_executor = GISEvidenceExecutor(evidence_registry)
 
     def register_specialist(self, specialist: Specialist) -> None:
         if specialist.capability in self.specialists:
@@ -148,6 +150,7 @@ class ExecutionEngine:
         inputs: list[str] | None = None,
         specialist_override: Specialist | None = None,
         selected_model: str | None = None,
+        dependency_evidence_ids: list[str] | None = None,
     ) -> ExecutionResult:
         if step.operation == "specialist_inference":
             return self.execute_specialist(
@@ -184,6 +187,17 @@ class ExecutionEngine:
         if step.operation == "verification":
             return self.execute_verification(step)
 
+        if step.operation in {
+            "buffer",
+            "intersection",
+            "distance",
+            "area",
+        }:
+            return self.execute_gis(
+                step,
+                source_evidence_ids=dependency_evidence_ids,
+            )
+
         return ExecutionResult(
             success=False,
             step_id=step.step_id,
@@ -193,6 +207,41 @@ class ExecutionEngine:
                 f"implemented yet."
             ),
         )
+
+    def execute_gis(
+        self,
+        step: PlanStep,
+        source_evidence_ids: list[str] | None = None,
+    ) -> ExecutionResult:
+        """
+        Execute a deterministic GIS operation over dependency-produced Evidence.
+
+        When source evidence IDs are supplied, GIS operates only on those
+        explicitly resolved dependencies.
+        """
+        try:
+            evidence = self.gis_executor.execute(
+                step.operation,
+                parameters=step.parameters,
+                source_evidence_ids=source_evidence_ids,
+            )
+
+            return ExecutionResult(
+                success=True,
+                step_id=step.step_id,
+                task=step.task,
+                output=evidence.result,
+                evidence_ids=[evidence.evidence_id],
+                message="Deterministic GIS execution completed.",
+            )
+
+        except Exception as exc:
+            return ExecutionResult(
+                success=False,
+                step_id=step.step_id,
+                task=step.task,
+                message=f"GIS execution failed: {exc}",
+            )
 
     def execute(
         self,
@@ -215,15 +264,45 @@ class ExecutionEngine:
         specialist_bindings = specialist_bindings or {}
         selected_models = selected_models or {}
 
+        # Map plan step IDs to the Evidence IDs produced by those steps.
+        # This makes GIS dependencies explicit and auditable.
+        step_evidence_ids: dict[str, list[str]] = {}
+
         for step in plan.steps:
+            dependency_evidence_ids: list[str] = []
+
+            for dependency_step_id in step.depends_on:
+                if dependency_step_id not in step_evidence_ids:
+                    return results + [
+                        ExecutionResult(
+                            success=False,
+                            step_id=step.step_id,
+                            task=step.task,
+                            message=(
+                                f"Dependency step '{dependency_step_id}' "
+                                f"has not produced Evidence."
+                            ),
+                        )
+                    ]
+
+                dependency_evidence_ids.extend(
+                    step_evidence_ids[dependency_step_id]
+                )
+
             result = self.execute_step(
                 step,
                 inputs,
                 specialist_override=specialist_bindings.get(step.task),
                 selected_model=selected_models.get(step.task),
+                dependency_evidence_ids=dependency_evidence_ids,
             )
 
             results.append(result)
+
+            if result.success:
+                step_evidence_ids[step.step_id] = list(
+                    result.evidence_ids
+                )
 
             if not result.success:
                 break
