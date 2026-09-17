@@ -7,8 +7,9 @@ from src.controller import TaskController
 from src.data.input_metadata import InputMetadataResolver
 from src.evidence import EvidenceRegistry
 from src.executor import ExecutionEngine, Specialist
+from src.executor.sar_specialist import SARSpecialist
 from src.planner import EvidencePlan, EvidencePlanner
-from src.registry import ModelRegistry
+from src.registry import ModelRegistry, ModelSpec
 from src.router import SensorAwareRouter
 from src.schemas import TaskSpec
 
@@ -56,12 +57,50 @@ class SATQueryOrchestrator:
         self.evidence_registry = evidence_registry or EvidenceRegistry()
         self.engine = engine or ExecutionEngine(self.evidence_registry)
 
-        # Registry and router are optional for backwards compatibility.
-        # When supplied, routing becomes authoritative for model selection.
+        # ---------------------------------------------------------
+        # Model-aware routing
+        # ---------------------------------------------------------
+        # If the caller explicitly supplies a registry/router, preserve
+        # that custom routing configuration.
+        #
+        # If no registry is supplied:
+        #   * when custom specialists are supplied, retain the legacy
+        #     capability-based execution path;
+        #   * when no specialists are supplied, construct the built-in
+        #     production registry/router for SAR.
+        custom_specialists_supplied = specialists is not None
+        custom_registry_supplied = registry is not None
+        custom_router_supplied = router is not None
+
+        if registry is None and not custom_specialists_supplied:
+            registry = ModelRegistry()
+
+            registry.register(
+                ModelSpec(
+                    name=SARSpecialist.MODEL_NAME,
+                    capability=SARSpecialist.CAPABILITY,
+                    task_types=["specialized_analysis"],
+                    modalities=["sar"],
+                    status="AVAILABLE",
+                    specialist_name="SARSpecialist",
+                    metadata={
+                        "remote_sensing_adapted": False,
+                        "data_status": "real_validation",
+                        "risat_validated": False,
+                        "learned_detection": False,
+                    },
+                )
+            )
+
         self.registry = registry
-        self.router = router or (
-            SensorAwareRouter(registry) if registry is not None else None
-        )
+
+        # Only construct a router when a registry actually exists.
+        # Custom specialists without a registry retain the original
+        # capability-based execution behavior.
+        if router is None and registry is not None:
+            router = SensorAwareRouter(registry)
+
+        self.router = router
 
         self.config = config or OrchestratorConfig()
 
@@ -75,6 +114,10 @@ class SATQueryOrchestrator:
         if specialists is not None:
             for specialist in specialists:
                 self.register_specialist(specialist)
+        else:
+            # Built-in production specialist bindings.
+            # Custom callers can still inject their own specialists.
+            self.register_specialist(SARSpecialist())
 
     def register_specialist(self, specialist: Specialist) -> None:
         """
