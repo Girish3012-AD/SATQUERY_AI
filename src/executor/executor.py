@@ -6,6 +6,7 @@ from src.verifier.georeason_verifier import GeoReasonVerifier
 
 from .execution_result import ExecutionResult
 from .gis_executor import GISEvidenceExecutor
+from .multimodal_executor import MultimodalEvidenceExecutor
 from .specialist import Specialist
 
 
@@ -28,6 +29,9 @@ class ExecutionEngine:
         self.specialists = specialists or {}
         self.verifier = verifier or GeoReasonVerifier()
         self.gis_executor = GISEvidenceExecutor(evidence_registry)
+        self.multimodal_executor = MultimodalEvidenceExecutor(
+            evidence_registry
+        )
 
     def register_specialist(self, specialist: Specialist) -> None:
         if specialist.capability in self.specialists:
@@ -186,6 +190,37 @@ class ExecutionEngine:
 
         if step.operation == "verification":
             return self.execute_verification(step)
+
+        if step.operation == "multimodal_alignment":
+            try:
+                evidence = self.multimodal_executor.execute(
+                    source_evidence_ids=dependency_evidence_ids,
+                    parameters=step.parameters,
+                )
+
+                self.evidence_registry.add(evidence)
+
+                return ExecutionResult(
+                    success=True,
+                    step_id=step.step_id,
+                    task=step.task,
+                    output=evidence.result,
+                    evidence_ids=[evidence.evidence_id],
+                    message=(
+                        "Deterministic multimodal alignment "
+                        "completed."
+                    ),
+                )
+
+            except Exception as exc:
+                return ExecutionResult(
+                    success=False,
+                    step_id=step.step_id,
+                    task=step.task,
+                    message=(
+                        f"Multimodal alignment failed: {exc}"
+                    ),
+                )
 
         if step.operation in {
             "buffer",

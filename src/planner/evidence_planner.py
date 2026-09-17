@@ -100,6 +100,44 @@ class EvidencePlanner:
                 )
             )
 
+        # Multimodal optical + SAR composition
+        #
+        # The planner only creates this step when the TaskSpec
+        # explicitly requires both modalities. The specialist
+        # steps must execute first so their Evidence IDs can be
+        # supplied as dependencies to the multimodal executor.
+        required_modalities = set(
+            task_spec.required_modalities
+        )
+
+        if {
+            "optical",
+            "sar",
+        }.issubset(required_modalities):
+            specialist_step_ids = [
+                step.step_id
+                for step in steps
+                if step.operation
+                in {
+                    "specialist_inference",
+                    "sar_analysis",
+                    "temporal_analysis",
+                }
+            ]
+
+            if specialist_step_ids:
+                steps.append(
+                    PlanStep(
+                        step_id=f"T{len(steps) + 1}",
+                        task="multimodal_alignment",
+                        operation="multimodal_alignment",
+                        depends_on=specialist_step_ids,
+                        parameters=dict(
+                            task_spec.parameters
+                        ),
+                    )
+                )
+
         # Spatial operations
         previous_ids = [step.step_id for step in steps]
 

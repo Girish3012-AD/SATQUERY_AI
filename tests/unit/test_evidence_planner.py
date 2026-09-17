@@ -94,3 +94,45 @@ def test_plan_step_lookup_failure():
 
     with pytest.raises(KeyError):
         plan.get_step("DOES_NOT_EXIST")
+
+
+def test_optical_sar_multimodal_plan():
+    task = TaskSpec(
+        task_id="TASK-MM-001",
+        query="Analyze the scene using optical and SAR evidence.",
+        task_type="specialized_analysis",
+        required_capabilities=[
+            "building_detection",
+            "sar_analysis",
+        ],
+        required_modalities=[
+            "optical",
+            "sar",
+        ],
+        input_count=2,
+    )
+
+    plan = EvidencePlanner().create_plan(task)
+
+    assert plan.step_ids() == [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+    ]
+
+    assert plan.get_step("T1").task == "building_detection"
+    assert plan.get_step("T1").operation == "specialist_inference"
+
+    assert plan.get_step("T2").task == "sar_analysis"
+    assert plan.get_step("T2").operation == "sar_analysis"
+
+    assert plan.get_step("T3").task == "multimodal_alignment"
+    assert plan.get_step("T3").operation == "multimodal_alignment"
+    assert plan.get_step("T3").depends_on == [
+        "T1",
+        "T2",
+    ]
+
+    assert plan.get_step("T4").operation == "verification"
+    assert plan.get_step("T4").depends_on == ["T3"]
