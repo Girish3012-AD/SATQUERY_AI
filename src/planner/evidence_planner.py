@@ -80,6 +80,7 @@ class EvidencePlanner:
                     step_id=f"T{len(steps) + 1}",
                     task="sar_analysis",
                     operation="sar_analysis",
+                    parameters=dict(task_spec.parameters),
                 )
             )
 

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Iterable
 
 from src.controller import TaskController
+from src.data.input_metadata import InputMetadataResolver
 from src.evidence import EvidenceRegistry
 from src.executor import ExecutionEngine, Specialist
 from src.planner import EvidencePlan, EvidencePlanner
@@ -51,6 +52,7 @@ class SATQueryOrchestrator:
     ) -> None:
         self.controller = controller or TaskController()
         self.planner = planner or EvidencePlanner()
+        self.input_metadata_resolver = InputMetadataResolver()
         self.evidence_registry = evidence_registry or EvidenceRegistry()
         self.engine = engine or ExecutionEngine(self.evidence_registry)
 
@@ -124,11 +126,17 @@ class SATQueryOrchestrator:
         self,
         query: str,
         input_count: int,
+        parameters: dict | None = None,
     ) -> TaskSpec:
-        return self.controller.build_task_spec(
+        task_spec = self.controller.build_task_spec(
             query=query,
             input_count=input_count,
         )
+
+        if parameters:
+            task_spec.parameters.update(parameters)
+
+        return task_spec
 
     def build_plan(self, task_spec: TaskSpec) -> EvidencePlan:
         return self.planner.create_plan(task_spec)
@@ -379,9 +387,14 @@ class SATQueryOrchestrator:
 
         inputs = list(inputs or [])
 
+        input_parameters = (
+            self.input_metadata_resolver.resolve(inputs)
+        )
+
         task_spec = self.build_task_spec(
             query=query,
             input_count=len(inputs),
+            parameters=input_parameters,
         )
 
         plan = self.build_plan(task_spec)

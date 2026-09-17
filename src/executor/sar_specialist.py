@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 import time
 from pathlib import Path
 from typing import Any
@@ -77,7 +76,10 @@ class SARSpecialist(Specialist):
 
             array = dataset.read(1, masked=True)
 
-            values = np.asarray(array.compressed(), dtype=np.float64)
+            values = np.asarray(
+                array.compressed(),
+                dtype=np.float64,
+            )
 
             if values.size == 0:
                 raise ValueError(
@@ -132,6 +134,10 @@ class SARSpecialist(Specialist):
             time.perf_counter() - start_time
         ) * 1000.0
 
+        # ---------------------------------------------------------
+        # Sensor/product metadata
+        # ---------------------------------------------------------
+
         sensor = str(
             parameters.get(
                 "sensor",
@@ -139,18 +145,34 @@ class SARSpecialist(Specialist):
             )
         )
 
-        polarization = parameters.get(
-            "polarization"
+        polarization = parameters.get("polarization")
+        band = parameters.get("band")
+
+        frequency_band = parameters.get("frequency_band")
+        product_type = parameters.get("product_type")
+
+        data_status = str(
+            parameters.get(
+                "data_status",
+                "unknown",
+            )
         )
 
-        band = parameters.get(
-            "band"
+        units = str(
+            parameters.get(
+                "units",
+                "unknown",
+            )
+        )
+
+        risat_validated = bool(
+            parameters.get(
+                "risat_validated",
+                False,
+            )
         )
 
         # Deterministic characterization is not a calibrated probability.
-        # A high-quality input contract receives 0.80 as an operational
-        # evidence confidence, while the metadata records that this is not
-        # a learned detection confidence.
         confidence = 0.80
 
         evidence_id = (
@@ -163,20 +185,31 @@ class SARSpecialist(Specialist):
             )) & 0xFFFFFFFF:08x}"
         )
 
+        # ---------------------------------------------------------
+        # Measurements
+        # ---------------------------------------------------------
+
         measurement: dict[str, Any] = {
             "valid_pixel_count": int(finite.size),
             "valid_fraction": valid_fraction,
-            "mean_backscatter_db": mean_value,
-            "std_backscatter_db": std_value,
-            "min_backscatter_db": min_value,
-            "max_backscatter_db": max_value,
-            "p01_backscatter_db": float(p01),
-            "p05_backscatter_db": float(p05),
-            "p25_backscatter_db": float(p25),
-            "p50_backscatter_db": float(p50),
-            "p75_backscatter_db": float(p75),
-            "p95_backscatter_db": float(p95),
-            "p99_backscatter_db": float(p99),
+
+            # Keep neutral names because the source units are
+            # determined by the input product/metadata.
+            "mean_backscatter": mean_value,
+            "std_backscatter": std_value,
+            "min_backscatter": min_value,
+            "max_backscatter": max_value,
+
+            "p01_backscatter": float(p01),
+            "p05_backscatter": float(p05),
+            "p25_backscatter": float(p25),
+            "p50_backscatter": float(p50),
+            "p75_backscatter": float(p75),
+            "p95_backscatter": float(p95),
+            "p99_backscatter": float(p99),
+
+            "units": units,
+
             "resolution_x": resolution_x,
             "resolution_y": resolution_y,
             "width": width,
@@ -197,6 +230,20 @@ class SARSpecialist(Specialist):
                 band
             )
 
+        if frequency_band is not None:
+            measurement["frequency_band"] = str(
+                frequency_band
+            )
+
+        if product_type is not None:
+            measurement["product_type"] = str(
+                product_type
+            )
+
+        # ---------------------------------------------------------
+        # Result
+        # ---------------------------------------------------------
+
         result: dict[str, Any] = {
             "analysis_type": "sar_characterization",
             "has_valid_data": True,
@@ -208,6 +255,9 @@ class SARSpecialist(Specialist):
             "resolution_y": resolution_y,
             "valid_pixel_count": int(finite.size),
             "valid_fraction": valid_fraction,
+            "units": units,
+            "data_status": data_status,
+            "risat_validated": risat_validated,
         }
 
         if polarization is not None:
@@ -219,6 +269,20 @@ class SARSpecialist(Specialist):
             result["band"] = str(
                 band
             )
+
+        if frequency_band is not None:
+            result["frequency_band"] = str(
+                frequency_band
+            )
+
+        if product_type is not None:
+            result["product_type"] = str(
+                product_type
+            )
+
+        # ---------------------------------------------------------
+        # Evidence
+        # ---------------------------------------------------------
 
         return Evidence(
             evidence_id=evidence_id,
@@ -238,10 +302,14 @@ class SARSpecialist(Specialist):
                 "device": "cpu",
                 "perception_status": "CONNECTED",
                 "confidence_calibration": "NOT_CALIBRATED",
+                "data_status": data_status,
+                "risat_validated": risat_validated,
+                "learned_detection": False,
             },
             metadata={
                 "phase": "sar_specialist_connected",
                 "deterministic": True,
+                "units": units,
                 "warning": (
                     "This specialist characterizes SAR raster statistics; "
                     "it does not perform learned object or flood detection."
