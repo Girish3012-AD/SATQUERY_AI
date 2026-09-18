@@ -76,6 +76,25 @@ class TaskController:
         "covered area": "area",
     }
 
+    # Explicit natural-language visual-question intent.
+    # These patterns take precedence over entity keywords such as
+    # "building" when the user is asking the VQA model to interpret
+    # the image rather than requesting deterministic detection/GIS.
+    VQA_PATTERNS = (
+        "what is shown",
+        "what is visible",
+        "what can be seen",
+        "describe the image",
+        "describe this image",
+        "describe what is visible",
+        "summarize the image",
+        "summarize this image",
+        "summarize the building information",
+        "using the provided evidence",
+        "based on the provided evidence",
+        "according to the provided evidence",
+    )
+
     def build_task_spec(
         self,
         query: str,
@@ -90,6 +109,11 @@ class TaskController:
             raise ValueError("input_count cannot be negative.")
 
         normalized = query.lower().strip()
+
+        explicit_vqa_intent = any(
+            pattern in normalized
+            for pattern in self.VQA_PATTERNS
+        )
 
         capabilities: list[str] = []
         modalities: list[str] = []
@@ -265,7 +289,10 @@ class TaskController:
             "road_detection",
         }
 
-        if not any(
+        if explicit_vqa_intent:
+            if "vqa" not in capabilities:
+                capabilities.append("vqa")
+        elif not any(
             capability in specialist_capabilities
             for capability in capabilities
         ):
@@ -283,6 +310,8 @@ class TaskController:
             task_type = "temporal_analysis"
         elif spatial_operations:
             task_type = "spatial_analysis"
+        elif explicit_vqa_intent:
+            task_type = "vqa"
         elif specialist_present:
             task_type = "specialized_analysis"
         else:

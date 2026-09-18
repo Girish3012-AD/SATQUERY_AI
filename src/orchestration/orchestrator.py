@@ -8,6 +8,10 @@ from src.data.input_metadata import InputMetadataResolver
 from src.evidence import EvidenceRegistry
 from src.executor import ExecutionEngine, Specialist
 from src.executor.sar_specialist import SARSpecialist
+from src.executor.vqa_specialist import (
+    DEFAULT_ADAPTER_PATH,
+    VqaSpecialist,
+)
 from src.planner import EvidencePlan, EvidencePlanner
 from src.registry import ModelRegistry, ModelSpec
 from src.router import SensorAwareRouter
@@ -92,6 +96,26 @@ class SATQueryOrchestrator:
                 )
             )
 
+            registry.register(
+                ModelSpec(
+                    name=VqaSpecialist.MODEL_NAME,
+                    capability=VqaSpecialist.CAPABILITY,
+                    task_types=["vqa"],
+                    modalities=["optical"],
+                    status="AVAILABLE",
+                    specialist_name="VqaSpecialist",
+                    checkpoint=DEFAULT_ADAPTER_PATH,
+                    metadata={
+                        "remote_sensing_adapted": True,
+                        "adapter_type": "PEFT_LORA",
+                        "adapter_path": DEFAULT_ADAPTER_PATH,
+                        "data_status": "development",
+                        "confidence_calibrated": False,
+                        "scientific_validation": False,
+                    },
+                )
+            )
+
         self.registry = registry
 
         # Only construct a router when a registry actually exists.
@@ -118,6 +142,11 @@ class SATQueryOrchestrator:
             # Built-in production specialist bindings.
             # Custom callers can still inject their own specialists.
             self.register_specialist(SARSpecialist())
+            self.register_specialist(
+                VqaSpecialist(
+                    adapter_path=DEFAULT_ADAPTER_PATH,
+                )
+            )
 
     def register_specialist(self, specialist: Specialist) -> None:
         """
@@ -418,6 +447,7 @@ class SATQueryOrchestrator:
         self,
         query: str,
         inputs: list[str] | None = None,
+        parameters: dict | None = None,
     ):
         """
         Execute the complete SATQuery orchestration pipeline.
@@ -429,10 +459,15 @@ class SATQueryOrchestrator:
         )
 
         inputs = list(inputs or [])
+        parameters = dict(parameters or {})
 
         input_parameters = (
             self.input_metadata_resolver.resolve(inputs)
         )
+
+        # Explicit caller parameters are authoritative for runtime
+        # specialist configuration such as evidence-conditioned VQA.
+        input_parameters.update(parameters)
 
         task_spec = self.build_task_spec(
             query=query,

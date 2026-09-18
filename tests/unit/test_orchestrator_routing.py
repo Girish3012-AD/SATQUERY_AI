@@ -19,13 +19,28 @@ class FakeSpecialist(Specialist):
         return self._capability
 
     def infer(self, inputs, parameters=None):
+        modality = (
+            "sar"
+            if self._capability in {
+                "sar_analysis",
+                "flood_detection",
+            }
+            else "optical"
+        )
+
+        sensor = (
+            "test-sar"
+            if modality == "sar"
+            else "test-optical"
+        )
+
         return Evidence(
             evidence_id=f"fake-{self._capability}",
             source="unit-test",
             task=self._capability,
             model=f"Fake-{self._capability}",
-            sensor="test",
-            modality="optical",
+            sensor=sensor,
+            modality=modality,
             confidence=0.9,
             result={"answer": "synthetic test evidence"},
             provenance={"test": True},

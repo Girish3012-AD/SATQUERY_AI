@@ -63,15 +63,39 @@ class EvidencePlanner:
             "road_detection",
         ]
 
-        for capability in specialist_capabilities:
-            if capability in capabilities:
-                steps.append(
-                    PlanStep(
-                        step_id=f"T{len(steps) + 1}",
-                        task=capability,
-                        operation="specialist_inference",
-                    )
+        # Explicit VQA intent is authoritative for execution.
+        #
+        # The controller may retain entity capabilities such as
+        # "building_detection" for semantic information, but when
+        # task_type == "vqa" those capabilities must not create
+        # specialist detection steps.
+        #
+        # This prevents a VQA question mentioning "building" from
+        # being converted into a building-detection workflow.
+
+        if task_spec.task_type == "vqa":
+            steps.append(
+                PlanStep(
+                    step_id="T1",
+                    task="vqa",
+                    operation="visual_question_answering",
+                    parameters=dict(task_spec.parameters)
+                    | {
+                        "query": task_spec.query,
+                    },
                 )
+            )
+
+        else:
+            for capability in specialist_capabilities:
+                if capability in capabilities:
+                    steps.append(
+                        PlanStep(
+                            step_id=f"T{len(steps) + 1}",
+                            task=capability,
+                            operation="specialist_inference",
+                        )
+                    )
 
         # SAR analysis
         if "sar_analysis" in capabilities:
@@ -81,22 +105,6 @@ class EvidencePlanner:
                     task="sar_analysis",
                     operation="sar_analysis",
                     parameters=dict(task_spec.parameters),
-                )
-            )
-
-        # Generic VQA fallback
-        if (
-            not steps
-            and "vqa" in capabilities
-        ):
-            steps.append(
-                PlanStep(
-                    step_id="T1",
-                    task="vqa",
-                    operation="visual_question_answering",
-                    parameters={
-                        "query": task_spec.query,
-                    },
                 )
             )
 
@@ -166,6 +174,16 @@ class EvidencePlanner:
                     task="verification",
                     operation="verification",
                     depends_on=[steps[-1].step_id],
+                    parameters={
+                        "expected_task": (
+                            "vqa"
+                            if task_spec.task_type == "vqa"
+                            else None
+                        ),
+                        "required_modalities": (
+                            task_spec.required_modalities or []
+                        ),
+                    },
                 )
             )
 

@@ -1,19 +1,28 @@
 from pathlib import Path
 
-from src.executor.vqa_specialist import VqaSpecialist
-from src.orchestration.orchestrator import SATQueryOrchestrator
-from src.registry import ModelRegistry, ModelSpec
+import pytest
+
 from src.controller.task_controller import TaskController
-from src.planner.evidence_planner import EvidencePlanner
-from src.executor.executor import ExecutionEngine
-from src.router.sensor_router import SensorAwareRouter
 from src.evidence import EvidenceRegistry
+from src.executor.executor import ExecutionEngine
+from src.executor.vqa_specialist import (
+    DEFAULT_ADAPTER_PATH,
+    VqaSpecialist,
+)
+from src.orchestration.orchestrator import SATQueryOrchestrator
+from src.planner.evidence_planner import EvidencePlanner
+from src.registry import ModelRegistry, ModelSpec
+from src.router.sensor_router import SensorAwareRouter
 
 
 def find_vqa_image() -> str:
     candidates = [
         Path("data/samples/vqa_test.png"),
-        Path("data/remote_sensing/spacenet4/Pan-Sharpen_Atlanta_nadir53_catid_1030010003CD4300_743501_3721539.tif"),
+        Path(
+            "data/remote_sensing/spacenet4/"
+            "Pan-Sharpen_Atlanta_nadir53_catid_1030010003CD4300_"
+            "743501_3721539.tif"
+        ),
     ]
 
     for path in candidates:
@@ -26,39 +35,60 @@ def find_vqa_image() -> str:
     )
 
 
-def main() -> None:
+@pytest.mark.integration
+def test_real_vqa_orchestration_end_to_end():
     image_path = find_vqa_image()
 
-    print("VQA input:", image_path)
+    adapter_path = Path(DEFAULT_ADAPTER_PATH)
+
+    assert adapter_path.exists(), (
+        f"VQA LoRA adapter does not exist: {adapter_path}"
+    )
+
+    assert (adapter_path / "adapter_config.json").exists(), (
+        "VQA LoRA adapter_config.json is missing."
+    )
+
+    assert (adapter_path / "adapter_model.safetensors").exists(), (
+        "VQA LoRA adapter_model.safetensors is missing."
+    )
 
     registry = ModelRegistry()
 
     registry.register(
         ModelSpec(
-            name="Qwen2-VL-2B-Instruct",
-            capability="vqa",
+            name=VqaSpecialist.MODEL_NAME,
+            capability=VqaSpecialist.CAPABILITY,
             task_types=["vqa"],
             modalities=["optical"],
             status="AVAILABLE",
             specialist_name="VqaSpecialist",
-            checkpoint="Qwen/Qwen2-VL-2B-Instruct",
-            version="2B",
+            checkpoint=DEFAULT_ADAPTER_PATH,
+            version="2B-LoRA",
             metadata={
                 "framework": "transformers",
                 "execution": "local",
                 "offline": True,
-                "remote_sensing_adapted": False,
-                "role": "visual_question_answering",
+                "remote_sensing_adapted": True,
+                "adapter_type": "PEFT_LORA",
+                "adapter_path": DEFAULT_ADAPTER_PATH,
+                "confidence_calibrated": False,
+                "scientific_validation": False,
+                "role": "evidence_grounded_visual_question_answering",
             },
         )
     )
 
-    specialist = VqaSpecialist()
+    specialist = VqaSpecialist(
+        adapter_path=DEFAULT_ADAPTER_PATH
+    )
 
     controller = TaskController()
     planner = EvidencePlanner()
     evidence_registry = EvidenceRegistry()
-    engine = ExecutionEngine(evidence_registry=evidence_registry)
+    engine = ExecutionEngine(
+        evidence_registry=evidence_registry
+    )
 
     orchestrator = SATQueryOrchestrator(
         controller=controller,
@@ -73,9 +103,13 @@ def main() -> None:
     query = "What is visible in this image?"
 
     print()
+    print("=" * 60)
+    print("STEP 2AY-Z-N : REAL VQA PRODUCTION E2E")
+    print("=" * 60)
+    print("Input:", image_path)
+    print("Model:", VqaSpecialist.MODEL_NAME)
+    print("Adapter:", DEFAULT_ADAPTER_PATH)
     print("Query:", query)
-    print("Registered model:", registry.get("Qwen2-VL-2B-Instruct"))
-    print("Registered specialist:", specialist.__class__.__name__)
 
     result = orchestrator.run(
         query=query,
@@ -83,14 +117,11 @@ def main() -> None:
     )
 
     print()
-    print("==================================================")
+    print("=" * 60)
     print("ORCHESTRATION RESULT")
-    print("==================================================")
-
+    print("=" * 60)
     print("success:", result.success)
-    print("task_id:", result.task_id)
     print("task_type:", result.task_type)
-    print("plan_id:", result.plan_id)
     print("selected_capabilities:", result.selected_capabilities)
     print("selected_models:", result.selected_models)
     print("executed_steps:", result.executed_steps)
@@ -100,72 +131,171 @@ def main() -> None:
     print("verification:", result.verification)
     print("messages:", result.messages)
 
-    assert result.selected_models.get("vqa") == "Qwen2-VL-2B-Instruct", (
+    # ---------------------------------------------------------
+    # Controller / planner
+    # ---------------------------------------------------------
+
+    assert result.task_type == "vqa", (
+        f"Expected vqa task type, got {result.task_type!r}"
+    )
+
+    # ---------------------------------------------------------
+    # Automatic registry + router selection
+    # ---------------------------------------------------------
+
+    assert result.selected_models.get("vqa") == (
+        VqaSpecialist.MODEL_NAME
+    ), (
         "Orchestrator did not select the real Qwen VQA model."
     )
 
-    assert result.selected_capabilities.get("vqa") == "VqaSpecialist", (
+    assert result.selected_capabilities.get("vqa") == (
+        VqaSpecialist.__name__
+    ), (
         "Orchestrator did not bind the real VqaSpecialist."
     )
 
-    # The specialist execution itself succeeded, but GeoReason is
-    # expected to reject the current uncalibrated VQA confidence of 0.5.
-    assert result.success is False, (
-        "Expected verification to reject the uncalibrated VQA evidence."
-    )
+    # ---------------------------------------------------------
+    # Specialist execution
+    # ---------------------------------------------------------
 
     assert "T1" in result.successful_steps, (
         "Real VQA specialist execution did not succeed."
     )
 
-    assert "T2" in result.failed_steps, (
-        "Verification step did not execute as expected."
+    assert result.evidence_ids, (
+        "Real VQA produced no evidence."
     )
 
-    assert result.verification.get("status") == "low_confidence", (
-        "Expected GeoReason to mark the current VQA evidence as low_confidence."
+    evidence_items = evidence_registry.all()
+
+    assert evidence_items, (
+        "Evidence registry is empty after real VQA execution."
     )
 
-    assert result.verification.get("verified") is False, (
-        "Low-confidence VQA evidence must not be marked verified."
+    vqa_evidence = next(
+        (
+            item
+            for item in evidence_items
+            if item.task == "vqa"
+        ),
+        None,
     )
 
-    assert (
-        result.verification.get("recommended_action")
-        == "request_additional_evidence"
-    ), (
-        "Expected verifier recommendation to request additional evidence."
+    assert vqa_evidence is not None, (
+        "No VQA evidence was found in the EvidenceRegistry."
     )
 
-    assert result.evidence_ids, "Real VQA produced no evidence."
+    # ---------------------------------------------------------
+    # Evidence contract
+    # ---------------------------------------------------------
 
-    evidence = evidence_registry.all()
-
-    assert evidence, "Evidence registry is empty."
-
-    vqa_evidence = evidence[0]
+    assert vqa_evidence.model == VqaSpecialist.MODEL_NAME
+    assert vqa_evidence.task == "vqa"
+    assert vqa_evidence.modality == "optical"
 
     print()
-    print("==================================================")
-    print("REAL EVIDENCE")
-    print("==================================================")
-
+    print("=" * 60)
+    print("REAL VQA EVIDENCE")
+    print("=" * 60)
     print("evidence_id:", vqa_evidence.evidence_id)
     print("task:", vqa_evidence.task)
     print("model:", vqa_evidence.model)
     print("modality:", vqa_evidence.modality)
     print("confidence:", vqa_evidence.confidence)
     print("result:", vqa_evidence.result)
+    print("provenance:", vqa_evidence.provenance)
 
-    assert vqa_evidence.model == "Qwen2-VL-2B-Instruct", (
-        "Evidence was not stamped with the routed model."
+    # ---------------------------------------------------------
+    # Real LoRA / evidence-conditioning provenance
+    # ---------------------------------------------------------
+
+    provenance = vqa_evidence.provenance
+
+    assert provenance.get("adapter_loaded") is True, (
+        "Real VQA inference did not report adapter_loaded=True."
+    )
+
+    assert provenance.get("adapter_type") == "PEFT_LORA", (
+        "Real VQA inference did not report PEFT_LORA."
+    )
+
+    assert provenance.get("remote_sensing_adapted") is True, (
+        "Real VQA inference did not report remote-sensing adaptation."
+    )
+
+    assert provenance.get("evidence_provided") is False, (
+        "Image-only production test unexpectedly received VQA evidence."
+    )
+
+    assert provenance.get("evidence_conditioned") is False, (
+        "Image-only production test unexpectedly became evidence-conditioned."
+    )
+
+    # ---------------------------------------------------------
+    # Confidence must remain honest
+    # ---------------------------------------------------------
+
+    assert vqa_evidence.confidence == pytest.approx(0.5), (
+        "VQA confidence changed unexpectedly. "
+        "The current confidence is intentionally uncalibrated."
+    )
+
+    # ---------------------------------------------------------
+    # Verification
+    # ---------------------------------------------------------
+
+    assert result.verification, (
+        "Production VQA returned no verification result."
+    )
+
+    verification = result.verification
+
+    print()
+    print("=" * 60)
+    print("REAL VQA VERIFICATION")
+    print("=" * 60)
+    print("status:", verification.get("status"))
+    print("verified:", verification.get("verified"))
+    print("confidence:", verification.get("confidence"))
+    print("recommended_action:",
+          verification.get("recommended_action"))
+    print("vqa_claim_status:",
+          verification.get("vqa_claim_status"))
+
+    # Current VQA confidence is 0.5, below the 0.60 verifier
+    # threshold. Therefore the specialist execution succeeds but
+    # overall verification must remain low_confidence.
+    assert verification.get("status") == "low_confidence", (
+        "Expected current uncalibrated VQA evidence to remain "
+        "low_confidence."
+    )
+
+    assert verification.get("verified") is False, (
+        "Uncalibrated VQA confidence must not be marked verified."
+    )
+
+    assert verification.get("recommended_action") == (
+        "request_additional_evidence"
+    ), (
+        "Expected low-confidence VQA verification to request "
+        "additional evidence."
+    )
+
+    # No structured VQA consistency object is supplied in this
+    # image-only production test, so claim status should remain None.
+    assert verification.get("vqa_claim_status") is None, (
+        "Image-only VQA should not invent a structured claim status."
+    )
+
+    # Overall orchestration is expected to fail verification, not
+    # specialist execution.
+    assert result.success is False, (
+        "Expected overall result to remain unsuccessful because "
+        "current VQA confidence is below the verifier threshold."
     )
 
     print()
-    print("==================================================")
-    print("PHASE 8C.1A - REAL VQA ORCHESTRATION: PASS")
-    print("==================================================")
-
-
-if __name__ == "__main__":
-    main()
+    print("=" * 60)
+    print("STEP 2AY-Z-N : REAL VQA PRODUCTION E2E PASS")
+    print("=" * 60)

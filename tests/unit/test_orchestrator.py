@@ -139,8 +139,11 @@ def test_orchestrator_runs_temporal_analysis_end_to_end():
 
 
 def test_orchestrator_detects_missing_specialist():
-
-    orchestrator = SATQueryOrchestrator()
+    # Explicitly provide no specialists so this test exercises the
+    # missing-specialist routing path.
+    orchestrator = SATQueryOrchestrator(
+        specialists=[]
+    )
 
     result = orchestrator.run(
         query="What is shown in this image?",
@@ -148,10 +151,8 @@ def test_orchestrator_detects_missing_specialist():
     )
 
     assert result.success is False
-
     assert result.executed_steps == []
     assert result.evidence_ids == []
-
     assert result.status == "failed"
 
     assert "Required specialist implementation(s) unavailable." in (
@@ -162,7 +163,6 @@ def test_orchestrator_detects_missing_specialist():
         "vqa" in message
         for message in result.messages
     )
-
 
 def test_orchestrator_rejects_duplicate_specialist():
 

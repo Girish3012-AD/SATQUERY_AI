@@ -17,3 +17,8 @@ class VerificationResult(BaseModel):
     conflicts: list[str] = Field(default_factory=list)
 
     recommended_action: str | None = None
+
+    # Optional claim-level verification for evidence-conditioned VQA.
+    # This is intentionally separate from the overall verification status,
+    # which still reflects evidence confidence and required constraints.
+    vqa_claim_status: str | None = None

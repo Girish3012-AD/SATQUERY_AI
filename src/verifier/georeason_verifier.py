@@ -19,6 +19,10 @@ class GeoReasonVerifier:
     LOW_CONFIDENCE = "low_confidence"
     ABSTAIN = "abstain"
 
+    VQA_SUPPORTED = "SUPPORTED"
+    VQA_PARTIALLY_SUPPORTED = "PARTIALLY_SUPPORTED"
+    VQA_CONTRADICTED = "CONTRADICTED"
+
     def __init__(
         self,
         minimum_confidence: float = 0.60,
@@ -39,6 +43,7 @@ class GeoReasonVerifier:
         *,
         expected_task: str | None = None,
         required_modalities: list[str] | None = None,
+        vqa_consistency: dict[str, Any] | None = None,
     ) -> VerificationResult:
         """
         Verify a collection of evidence items.
@@ -54,6 +59,8 @@ class GeoReasonVerifier:
 
         required_modalities = required_modalities or []
 
+        vqa_claim_status: str | None = None
+
         if not evidence:
             return VerificationResult(
                 status=self.ABSTAIN,
@@ -63,6 +70,7 @@ class GeoReasonVerifier:
                 evidence_ids=[],
                 conflicts=[],
                 recommended_action="abstain",
+                vqa_claim_status=vqa_claim_status,
             )
 
         evidence_ids = [item.evidence_id for item in evidence]
@@ -96,6 +104,7 @@ class GeoReasonVerifier:
                 evidence_ids=evidence_ids,
                 conflicts=[],
                 recommended_action="abstain",
+                vqa_claim_status=vqa_claim_status,
             )
 
         # ---------------------------------------------------------
@@ -113,6 +122,7 @@ class GeoReasonVerifier:
                 evidence_ids=evidence_ids,
                 conflicts=[],
                 recommended_action="collect_more_evidence",
+                vqa_claim_status=vqa_claim_status,
             )
 
         # ---------------------------------------------------------
@@ -163,6 +173,25 @@ class GeoReasonVerifier:
             reasons.append("Conflicting evidence was detected.")
 
         # ---------------------------------------------------------
+        # Evidence-conditioned VQA consistency
+        # ---------------------------------------------------------
+
+        vqa_claim_status, vqa_reasons = self._evaluate_vqa_consistency(
+            vqa_consistency
+        )
+
+        reasons.extend(vqa_reasons)
+
+        # An explicitly contradicted VQA claim becomes a verification
+        # conflict. Partial support remains distinguishable from a hard
+        # contradiction and does not silently alter the confidence score.
+        if vqa_claim_status == self.VQA_CONTRADICTED:
+            conflicts.append(
+                "Evidence-conditioned VQA claims contradict the supplied "
+                "remote-sensing evidence."
+            )
+
+        # ---------------------------------------------------------
         # Confidence decision
         # ---------------------------------------------------------
 
@@ -185,6 +214,7 @@ class GeoReasonVerifier:
                 evidence_ids=evidence_ids,
                 conflicts=conflicts,
                 recommended_action="abstain",
+                vqa_claim_status=vqa_claim_status,
             )
 
         if expected_task is not None and not any(
@@ -198,6 +228,7 @@ class GeoReasonVerifier:
                 evidence_ids=evidence_ids,
                 conflicts=conflicts,
                 recommended_action="collect_task_specific_evidence",
+                vqa_claim_status=vqa_claim_status,
             )
 
         if average_confidence < self.minimum_confidence:
@@ -209,6 +240,7 @@ class GeoReasonVerifier:
                 evidence_ids=evidence_ids,
                 conflicts=conflicts,
                 recommended_action="request_additional_evidence",
+                vqa_claim_status=vqa_claim_status,
             )
 
         reasons.append(
@@ -223,7 +255,100 @@ class GeoReasonVerifier:
             evidence_ids=evidence_ids,
             conflicts=conflicts,
             recommended_action="accept",
+            vqa_claim_status=vqa_claim_status,
         )
+
+    @classmethod
+    def _evaluate_vqa_consistency(
+        cls,
+        consistency: dict[str, Any] | None,
+    ) -> tuple[str | None, list[str]]:
+        """
+        Classify structured evidence-conditioned VQA consistency.
+
+        True  = supported claim
+        False = explicit contradiction/mismatch
+        None  = not evaluated / unavailable
+
+        Classification is deliberately separate from confidence.
+        A supported VQA claim can still remain low-confidence when the
+        underlying specialist confidence is below the verifier threshold.
+        """
+        if consistency is None:
+            return None, []
+
+        if not isinstance(consistency, dict):
+            return None, [
+                "VQA consistency information was invalid and could not be evaluated."
+            ]
+
+        keys = (
+            "numeric_match",
+            "density_match",
+            "coverage_match",
+            "scene_match",
+        )
+
+        evaluated = [
+            (key, consistency[key])
+            for key in keys
+            if key in consistency and consistency[key] is not None
+        ]
+
+        if not evaluated:
+            return None, [
+                "No structured VQA consistency checks were available."
+            ]
+
+        invalid = [
+            key
+            for key, value in evaluated
+            if not isinstance(value, bool)
+        ]
+
+        if invalid:
+            return None, [
+                "Invalid VQA consistency values for: "
+                + ", ".join(invalid)
+            ]
+
+        mismatches = [
+            key
+            for key, value in evaluated
+            if value is False
+        ]
+
+        supported = [
+            key
+            for key, value in evaluated
+            if value is True
+        ]
+
+        # An explicit numeric contradiction is treated as a contradiction.
+        # A single semantic category mismatch with otherwise supported
+        # evidence is partial support.
+        if "numeric_match" in mismatches:
+            return cls.VQA_CONTRADICTED, [
+                "VQA structured consistency detected a numeric contradiction."
+            ]
+
+        if mismatches and supported:
+            return cls.VQA_PARTIALLY_SUPPORTED, [
+                "VQA answer is partially supported by the supplied "
+                "remote-sensing evidence; inconsistent claims: "
+                + ", ".join(mismatches)
+            ]
+
+        if mismatches:
+            return cls.VQA_CONTRADICTED, [
+                "VQA structured consistency detected unsupported claims: "
+                + ", ".join(mismatches)
+            ]
+
+        return cls.VQA_SUPPORTED, [
+            "VQA structured claims are consistent with the supplied "
+            "remote-sensing evidence."
+        ]
 
     @staticmethod
     def _detect_conflicts(

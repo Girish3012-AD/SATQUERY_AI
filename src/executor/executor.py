@@ -3,6 +3,7 @@ from __future__ import annotations
 from src.evidence.registry import EvidenceRegistry
 from src.planner.evidence_planner import EvidencePlan, PlanStep
 from src.verifier.georeason_verifier import GeoReasonVerifier
+from src.verifier.vqa_consistency import evaluate_vqa_consistency
 
 from .execution_result import ExecutionResult
 from .gis_executor import GISEvidenceExecutor
@@ -129,10 +130,43 @@ class ExecutionEngine:
                 message="required_modalities must be a list.",
             )
 
+        vqa_consistency = None
+
+        # Evidence-conditioned VQA receives its structured evidence
+        # through the VQA Evidence contract. Only VQA evidence is
+        # evaluated by the structured consistency layer.
+        if expected_task == "vqa":
+            vqa_evidence = next(
+                (
+                    item
+                    for item in reversed(evidence)
+                    if item.task == "vqa"
+                ),
+                None,
+            )
+
+            if vqa_evidence is not None:
+                answer = vqa_evidence.result.get("answer")
+                structured_evidence = (
+                    vqa_evidence.result.get(
+                        "vqa_structured_evidence"
+                    )
+                )
+
+                if (
+                    isinstance(answer, str)
+                    and isinstance(structured_evidence, dict)
+                ):
+                    vqa_consistency = evaluate_vqa_consistency(
+                        answer=answer,
+                        evidence=structured_evidence,
+                    )
+
         verification = self.verifier.verify(
             evidence,
             expected_task=expected_task,
             required_modalities=required_modalities_value,
+            vqa_consistency=vqa_consistency,
         )
 
         return ExecutionResult(
