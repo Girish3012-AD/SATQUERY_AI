@@ -152,16 +152,27 @@ class EvidencePlanner:
         # Temporal specialists produce raster change evidence. Spatial
         # operations such as area/distance/intersection require geometry.
         # Insert a deterministic geospatialization stage between temporal
-        # perception and GIS execution.
+        # perception and GIS execution — but only when temporal analysis
+        # is the sole specialist step. When other specialist detection
+        # steps (e.g. flood_detection, building_detection) are also
+        # present they already produce geometric evidence, so an extra
+        # raster-to-vector conversion stage is not needed.
         temporal_step_ids = [
             step.step_id
             for step in steps
             if step.operation == "temporal_analysis"
         ]
 
+        specialist_detection_ids = [
+            step.step_id
+            for step in steps
+            if step.operation == "specialist_inference"
+        ]
+
         if (
             temporal_step_ids
             and task_spec.spatial_operations
+            and not specialist_detection_ids
         ):
             steps.append(
                 PlanStep(

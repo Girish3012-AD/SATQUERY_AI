@@ -7,6 +7,7 @@ from src.controller import TaskController
 from src.data.input_metadata import InputMetadataResolver
 from src.evidence import EvidenceRegistry
 from src.executor import ExecutionEngine, Specialist
+from src.executor.flood_specialist import FloodSpecialist
 from src.executor.sar_specialist import SARSpecialist
 from src.executor.temporal_change_specialist import TemporalChangeSpecialist
 from src.executor.vqa_specialist import (
@@ -17,6 +18,7 @@ from src.planner import EvidencePlan, EvidencePlanner
 from src.registry import ModelRegistry, ModelSpec
 from src.router import SensorAwareRouter
 from src.schemas import TaskSpec
+
 
 
 @dataclass
@@ -119,6 +121,25 @@ class SATQueryOrchestrator:
 
             registry.register(
                 ModelSpec(
+                    name=FloodSpecialist.MODEL_NAME,
+                    capability=FloodSpecialist.CAPABILITY,
+                    task_types=["specialized_analysis"],
+                    modalities=["optical"],
+                    status="AVAILABLE",
+                    specialist_name="FloodSpecialist",
+                    metadata={
+                        "remote_sensing_adapted": False,
+                        "analysis_type": "ndwi_spectral",
+                        "sensor": "Sentinel-2",
+                        "bands": ["B03", "B08"],
+                        "confidence_calibrated": False,
+                        "scientific_validation": False,
+                    },
+                )
+            )
+
+            registry.register(
+                ModelSpec(
                     name=VqaSpecialist.MODEL_NAME,
                     capability=VqaSpecialist.CAPABILITY,
                     task_types=["vqa"],
@@ -164,6 +185,7 @@ class SATQueryOrchestrator:
             # Custom callers can still inject their own specialists.
             self.register_specialist(SARSpecialist())
             self.register_specialist(TemporalChangeSpecialist())
+            self.register_specialist(FloodSpecialist())
             self.register_specialist(
                 VqaSpecialist(
                     adapter_path=DEFAULT_ADAPTER_PATH,
