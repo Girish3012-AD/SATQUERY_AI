@@ -59,62 +59,56 @@ def _sign_href(href: str) -> str:
     return pc.sign(href)
 
 
-def _download_band(href: str, dest: Path, max_retries: int = 5) -> Path:
+def _download_aoi_window(href: str, aoi_bbox: list[float], dest: Path) -> Path:
     """
-    Download a single Planetary Computer asset to dest with resumable chunks.
-    Signs the URL first to obtain a SAS-authenticated download link.
-    Returns dest path.
+    Extract a spatial window from a Planetary Computer COG asset matching the AOI.
+    Signs the URL, uses Rasterio to read only the required pixels, and saves a local GeoTIFF.
     """
-    import requests
     import rasterio
-    from requests.exceptions import RequestException, ChunkedEncodingError
+    from rasterio.windows import from_bounds
+    from rasterio.warp import transform_bounds
 
+    signed = _sign_href(href)
     dest.parent.mkdir(parents=True, exist_ok=True)
-    
-    for attempt in range(1, max_retries + 1):
-        try:
-            signed = _sign_href(href)
-            initial_size = dest.stat().st_size if dest.exists() else 0
-            
-            headers = {}
-            if initial_size > 0:
-                headers["Range"] = f"bytes={initial_size}-"
-            
-            response = requests.get(signed, headers=headers, stream=True, timeout=30)
-            
-            if response.status_code == 416:
-                print("    Range not satisfiable (416). Assuming file is completely downloaded.")
-                break
-                
-            response.raise_for_status()
-            
-            mode = "ab" if response.status_code == 206 else "wb"
-            if mode == "wb":
-                initial_size = 0
-                
-            total_size = int(response.headers.get("content-length", 0)) + initial_size
-            print(f"    Attempt {attempt}/{max_retries} - Resuming at {initial_size/(1<<20):.1f}MB / ~{total_size/(1<<20):.1f}MB")
-            
-            with open(dest, mode) as f:
-                for chunk in response.iter_content(chunk_size=1 << 20):
-                    if chunk:
-                        f.write(chunk)
-            
-            break
-            
-        except (RequestException, ConnectionError, ChunkedEncodingError) as e:
-            print(f"    Download interrupted on attempt {attempt}: {e.__class__.__name__}")
-            if attempt == max_retries:
-                raise RuntimeError(f"Download failed after {max_retries} attempts.") from e
-            time.sleep(2 ** attempt)
-            
-    # Final validation
-    try:
-        with rasterio.open(dest) as src:
-            _ = src.profile
-    except Exception as e:
-        raise RuntimeError(f"Validation failed: downloaded file {dest} is not a valid raster. {e}") from e
 
+    with rasterio.Env(
+        GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR",
+        CPL_VSIL_CURL_ALLOWED_EXTENSIONS="tif",
+        VSI_CACHE=True
+    ):
+        with rasterio.open(signed) as src:
+            # aoi_bbox is [min_lon, min_lat, max_lon, max_lat] in EPSG:4326
+            left, bottom, right, top = transform_bounds(
+                "EPSG:4326", src.crs, *aoi_bbox
+            )
+            
+            window = from_bounds(left, bottom, right, top, transform=src.transform)
+            
+            # Snap the window to whole pixels to align grids properly
+            window = window.round_lengths().round_offsets()
+            
+            print(f"      Requested AOI (EPSG:4326): {aoi_bbox}")
+            print(f"      Projected Bounds ({src.crs}): [{left:.1f}, {bottom:.1f}, {right:.1f}, {top:.1f}]")
+            print(f"      Calculated Window: {window}")
+            print(f"      Output Dimensions: {window.width} x {window.height} pixels")
+            
+            # Read the data for this window
+            data = src.read(1, window=window)
+            
+            # Calculate the geotransform for the window
+            win_transform = src.window_transform(window)
+            
+            meta = src.meta.copy()
+            meta.update({
+                "driver": "GTiff",
+                "height": window.height,
+                "width": window.width,
+                "transform": win_transform
+            })
+            
+            with rasterio.open(dest, "w", **meta) as dst:
+                dst.write(data, 1)
+                
     return dest
 
 
@@ -221,13 +215,13 @@ def run_rasuwa_flood_pipeline() -> dict[str, Any]:
     b03_path = Path(tmpdir) / "B03_green.tif"
     b08_path = Path(tmpdir) / "B08_nir.tif"
 
-    print(f"    Downloading B03 from {b03_href[:60]}...")
-    _download_band(b03_href, b03_path)
-    print(f"    B03 downloaded: {b03_path.stat().st_size / 1e6:.1f} MB")
+    print(f"    Extracting B03 window from {b03_href[:60]}...")
+    _download_aoi_window(b03_href, aoi.bbox, b03_path)
+    print(f"    B03 window saved: {b03_path.stat().st_size / 1e6:.2f} MB")
 
-    print(f"    Downloading B08 from {b08_href[:60]}...")
-    _download_band(b08_href, b08_path)
-    print(f"    B08 downloaded: {b08_path.stat().st_size / 1e6:.1f} MB")
+    print(f"    Extracting B08 window from {b08_href[:60]}...")
+    _download_aoi_window(b08_href, aoi.bbox, b08_path)
+    print(f"    B08 window saved: {b08_path.stat().st_size / 1e6:.2f} MB")
 
     audit["assets"] = {
         "B03_href": b03_href,
