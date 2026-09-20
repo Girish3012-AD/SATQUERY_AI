@@ -164,6 +164,15 @@ class GeoReasonVerifier:
             )
 
         # ---------------------------------------------------------
+        # Multimodal Provenance Validation
+        # ---------------------------------------------------------
+        for item in evidence:
+            if item.modality == "optical_sar":
+                if not item.provenance or "optical_evidence_id" not in item.provenance or "sar_evidence_id" not in item.provenance:
+                    reasons.append("Fused optical_sar evidence lacks provenance from both modalities.")
+                    conflicts.append("Incomplete multimodal provenance.")
+
+        # ---------------------------------------------------------
         # Conflict detection
         # ---------------------------------------------------------
 
