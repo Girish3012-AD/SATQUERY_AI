@@ -59,24 +59,61 @@ def _sign_href(href: str) -> str:
     return pc.sign(href)
 
 
-def _download_band(href: str, dest: Path) -> Path:
+def _download_band(href: str, dest: Path, max_retries: int = 5) -> Path:
     """
-    Download a single Planetary Computer asset to dest.
+    Download a single Planetary Computer asset to dest with resumable chunks.
     Signs the URL first to obtain a SAS-authenticated download link.
     Returns dest path.
     """
     import requests
-
-    signed = _sign_href(href)
-    response = requests.get(signed, stream=True, timeout=300)
-    response.raise_for_status()
+    import rasterio
+    from requests.exceptions import RequestException, ChunkedEncodingError
 
     dest.parent.mkdir(parents=True, exist_ok=True)
-
-    with open(dest, "wb") as f:
-        for chunk in response.iter_content(chunk_size=1 << 20):
-            if chunk:
-                f.write(chunk)
+    
+    for attempt in range(1, max_retries + 1):
+        try:
+            signed = _sign_href(href)
+            initial_size = dest.stat().st_size if dest.exists() else 0
+            
+            headers = {}
+            if initial_size > 0:
+                headers["Range"] = f"bytes={initial_size}-"
+            
+            response = requests.get(signed, headers=headers, stream=True, timeout=30)
+            
+            if response.status_code == 416:
+                print("    Range not satisfiable (416). Assuming file is completely downloaded.")
+                break
+                
+            response.raise_for_status()
+            
+            mode = "ab" if response.status_code == 206 else "wb"
+            if mode == "wb":
+                initial_size = 0
+                
+            total_size = int(response.headers.get("content-length", 0)) + initial_size
+            print(f"    Attempt {attempt}/{max_retries} - Resuming at {initial_size/(1<<20):.1f}MB / ~{total_size/(1<<20):.1f}MB")
+            
+            with open(dest, mode) as f:
+                for chunk in response.iter_content(chunk_size=1 << 20):
+                    if chunk:
+                        f.write(chunk)
+            
+            break
+            
+        except (RequestException, ConnectionError, ChunkedEncodingError) as e:
+            print(f"    Download interrupted on attempt {attempt}: {e.__class__.__name__}")
+            if attempt == max_retries:
+                raise RuntimeError(f"Download failed after {max_retries} attempts.") from e
+            time.sleep(2 ** attempt)
+            
+    # Final validation
+    try:
+        with rasterio.open(dest) as src:
+            _ = src.profile
+    except Exception as e:
+        raise RuntimeError(f"Validation failed: downloaded file {dest} is not a valid raster. {e}") from e
 
     return dest
 
