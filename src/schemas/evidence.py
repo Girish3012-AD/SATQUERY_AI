@@ -20,6 +20,10 @@ class Evidence(BaseModel):
 
     timestamp: str | None = None
 
+    t1_timestamp: str | None = None
+
+    t2_timestamp: str | None = None
+
     geometry: dict[str, Any] | None = None
 
     measurement: dict[str, Any] | None = None

@@ -272,7 +272,26 @@ class ChangeSpecialist(Specialist):
         max_change = float(
             np.max(difference_score)
         )
-
+        
+        # --- Polygonization ---
+        geometry_dict = None
+        changed_area_km2 = 0.0
+        polygon_count = 0
+        if changed_pixels > 0 and before_crs is not None and before_transform is not None:
+            from src.geospatial.polygonize import mask_to_polygons
+            poly_result = mask_to_polygons(
+                mask=change_mask,
+                transform=before_transform,
+                crs=before_crs
+            )
+            polygon_count = poly_result.polygon_count
+            changed_area_km2 = poly_result.total_area_m2 / 1e6
+            
+            if poly_result.polygons:
+                from src.geospatial.geometry import geometry_area
+                largest = max(poly_result.polygons, key=geometry_area)
+                geometry_dict = largest.__geo_interface__
+        
         # Baseline confidence reflects signal strength,
         # not calibrated model probability.
         confidence = float(
@@ -293,7 +312,13 @@ class ChangeSpecialist(Specialist):
             "mean_change": mean_change,
             "max_change": max_change,
             "threshold": threshold,
+            "changed_area_km2": changed_area_km2,
+            "polygon_count": polygon_count,
+            "note": "detected spectral/spatial change (deterministic baseline)"
         }
+        
+        t1_timestamp = parameters.get("t1_timestamp")
+        t2_timestamp = parameters.get("t2_timestamp")
 
         provenance = {
             "method": "normalized_absolute_raster_difference",
@@ -305,6 +330,8 @@ class ChangeSpecialist(Specialist):
             "before": str(before.resolve()),
             "after": str(after.resolve()),
             "crs": before_crs,
+            "t1_timestamp": t1_timestamp,
+            "t2_timestamp": t2_timestamp,
         }
 
         return Evidence(
@@ -317,11 +344,16 @@ class ChangeSpecialist(Specialist):
             model="deterministic_change_baseline",
             sensor=None,
             modality="optical",
-            geometry=None,
+            geometry=geometry_dict,
+            timestamp=t2_timestamp,
+            t1_timestamp=t1_timestamp,
+            t2_timestamp=t2_timestamp,
             measurement={
                 "change_percentage": change_percentage,
                 "mean_change": mean_change,
                 "max_change": max_change,
+                "changed_area_km2": changed_area_km2,
+                "polygon_count": polygon_count,
             },
             result=result,
             confidence=confidence,
@@ -330,5 +362,6 @@ class ChangeSpecialist(Specialist):
                 "threshold": threshold,
                 "shape": before_shape,
                 "band_count": int(before_data.shape[0]),
+                "deterministic": True
             },
         )

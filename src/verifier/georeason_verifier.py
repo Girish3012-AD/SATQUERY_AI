@@ -171,7 +171,15 @@ class GeoReasonVerifier:
                 if not item.provenance or "optical_evidence_id" not in item.provenance or "sar_evidence_id" not in item.provenance:
                     reasons.append("Fused optical_sar evidence lacks provenance from both modalities.")
                     conflicts.append("Incomplete multimodal provenance.")
-
+            
+            if item.task == "temporal_analysis":
+                if not item.t1_timestamp or not item.t2_timestamp:
+                    reasons.append("Temporal change evidence is missing T1 or T2 timestamp.")
+                    conflicts.append("Missing temporal metadata.")
+                if not item.geometry:
+                    reasons.append("Temporal change evidence lacks valid geometry.")
+                    conflicts.append("Missing spatial evidence.")
+                    
         # ---------------------------------------------------------
         # Conflict detection
         # ---------------------------------------------------------
