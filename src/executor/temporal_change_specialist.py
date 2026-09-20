@@ -12,6 +12,8 @@ from src.schemas.evidence import Evidence
 
 
 class TemporalChangeSpecialist(Specialist):
+    MODEL_NAME = "TemporalChangeSpecialist_ChangeUNet"
+    CAPABILITY = "temporal_analysis"
     """
     Unified temporal specialist.
 
@@ -50,6 +52,11 @@ class TemporalChangeSpecialist(Specialist):
     @property
     def capability(self) -> str:
         return "temporal_analysis"
+
+    def unload(self) -> None:
+        """Forward learned-model cleanup without affecting the fallback."""
+        if self.learned is not None:
+            self.learned.unload()
 
     def infer(
         self,

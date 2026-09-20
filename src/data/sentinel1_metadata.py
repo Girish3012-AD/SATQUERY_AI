@@ -94,6 +94,7 @@ class Sentinel1MetadataResolver:
             "product_type": cls.PRODUCT_TYPE,
             "data_status": str(data_status),
             "units": "source_product_units",
+            "timestamp": str(data.get("datetime", "")) or None,
             "risat_validated": risat_validated,
         }
 

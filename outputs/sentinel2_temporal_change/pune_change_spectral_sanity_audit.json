@@ -1,0 +1,138 @@
+{
+  "status": "completed",
+  "before_date": "2026-04-13T05:30:21.025000+00:00",
+  "after_date": "2026-04-23T05:30:21.025000+00:00",
+  "temporal_separation_days": 10,
+  "aoi": "Pune_AOI",
+  "bands": [
+    "B02",
+    "B03",
+    "B04",
+    "B08"
+  ],
+  "crs": "EPSG:32643",
+  "resolution_m": 10.0,
+  "grid_checks": {
+    "shape": true,
+    "mask_shape": true,
+    "probability_shape": true,
+    "CRS": true,
+    "transform": true,
+    "resolution": true
+  },
+  "valid_pixels": 7397088,
+  "analysis_valid_pixels": 7221248,
+  "changed_pixels": 1109341,
+  "unchanged_pixels": 6111907,
+  "per_band": {
+    "B02": {
+      "changed": {
+        "mean_absolute_difference": 122.1860580444336,
+        "median_absolute_difference": 79.0,
+        "p90_absolute_difference": 269.0,
+        "mean_relative_difference": 0.07160119712352753,
+        "median_relative_difference": 0.04842931777238846
+      },
+      "unchanged": {
+        "mean_absolute_difference": 81.35043334960938,
+        "median_absolute_difference": 57.0,
+        "p90_absolute_difference": 179.0,
+        "mean_relative_difference": 0.04318055883049965,
+        "median_relative_difference": 0.03359348326921463
+      },
+      "changed_to_unchanged_relative_ratio": 1.6581813450953669
+    },
+    "B03": {
+      "changed": {
+        "mean_absolute_difference": 129.46804809570312,
+        "median_absolute_difference": 80.0,
+        "p90_absolute_difference": 289.0,
+        "mean_relative_difference": 0.06261996179819107,
+        "median_relative_difference": 0.041763342916965485
+      },
+      "unchanged": {
+        "mean_absolute_difference": 78.60144805908203,
+        "median_absolute_difference": 54.0,
+        "p90_absolute_difference": 175.0,
+        "mean_relative_difference": 0.03518231585621834,
+        "median_relative_difference": 0.027288231998682022
+      },
+      "changed_to_unchanged_relative_ratio": 1.7798703773254663
+    },
+    "B04": {
+      "changed": {
+        "mean_absolute_difference": 150.16258239746094,
+        "median_absolute_difference": 99.0,
+        "p90_absolute_difference": 321.0,
+        "mean_relative_difference": 0.07030375301837921,
+        "median_relative_difference": 0.04712812975049019
+      },
+      "unchanged": {
+        "mean_absolute_difference": 82.60102081298828,
+        "median_absolute_difference": 62.0,
+        "p90_absolute_difference": 177.0,
+        "mean_relative_difference": 0.03573164716362953,
+        "median_relative_difference": 0.028471818193793297
+      },
+      "changed_to_unchanged_relative_ratio": 1.9675486186357476
+    },
+    "B08": {
+      "changed": {
+        "mean_absolute_difference": 221.8673553466797,
+        "median_absolute_difference": 135.0,
+        "p90_absolute_difference": 495.0,
+        "mean_relative_difference": 0.22762401401996613,
+        "median_relative_difference": 0.043044619262218475
+      },
+      "unchanged": {
+        "mean_absolute_difference": 107.33824157714844,
+        "median_absolute_difference": 80.0,
+        "p90_absolute_difference": 230.0,
+        "mean_relative_difference": 0.032212842255830765,
+        "median_relative_difference": 0.024050632491707802
+      },
+      "changed_to_unchanged_relative_ratio": 7.066250541079295
+    }
+  },
+  "multi_band": {
+    "changed_mean_relative_change": 0.10803722590208054,
+    "unchanged_mean_relative_change": 0.03657684475183487,
+    "changed_median_relative_change": 0.047089848667383194,
+    "unchanged_median_relative_change": 0.031146971508860588,
+    "changed_to_unchanged_ratio": 2.9537054558720754
+  },
+  "probability_spectral_correlation": 0.023347565761341286,
+  "threshold_agreement": {
+    "0.05": {
+      "spectral_pixels": 1748184,
+      "overlap_pixels": 520469,
+      "overlap_of_model_prediction_pct": 46.916953398459086,
+      "overlap_of_spectral_change_pct": 29.77198052378926
+    },
+    "0.1": {
+      "spectral_pixels": 324535,
+      "overlap_pixels": 211373,
+      "overlap_of_model_prediction_pct": 19.053924807611004,
+      "overlap_of_spectral_change_pct": 65.13103363273606
+    },
+    "0.2": {
+      "spectral_pixels": 56861,
+      "overlap_pixels": 51250,
+      "overlap_of_model_prediction_pct": 4.619859898804786,
+      "overlap_of_spectral_change_pct": 90.13207646717434
+    },
+    "0.3": {
+      "spectral_pixels": 15308,
+      "overlap_pixels": 14523,
+      "overlap_of_model_prediction_pct": 1.3091556158115494,
+      "overlap_of_spectral_change_pct": 94.87196237261563
+    }
+  },
+  "flags": [
+    "PREDICTED_CHANGE_HAS_HIGHER_MEAN_SPECTRAL_CHANGE",
+    "SPECTRAL_SEPARATION_PRESENT",
+    "WEAK_OR_NO_MODEL_PROBABILITY_SPECTRAL_ASSOCIATION"
+  ],
+  "scientific_validation": false,
+  "interpretation": "Quantitative sanity check only. Spectral association does not establish ground-truth physical change."
+}

@@ -1,0 +1,148 @@
+{
+  "status": "ABSTAIN",
+  "scientific_validation": false,
+  "interpretation": "Real-data inference using a synthetic-development ChangeUNet; not scientific validation.",
+  "workflow": [
+    "Sentinel-2 temporal ChangeUNet inference",
+    "Sentinel-1 VV deterministic characterization",
+    "deterministic optical-SAR evidence compatibility",
+    "GeoReason verification"
+  ],
+  "evidence_ids": {
+    "optical_temporal": "CHG_sentinel2_4band_sentinel2_4band_53b92bdf3587",
+    "sar": "SAR_S1A_IW_GRDH_1SDV_07E290_VV_PUNE_AOI_EPSG32643_10m_121a46ff",
+    "multimodal_compatibility": "MM_887564659b26"
+  },
+  "models": {
+    "optical": "ChangeUNet_SyntheticDev",
+    "sar": "SAR_Deterministic_Characterizer",
+    "alignment": "Deterministic_Multimodal_Alignment"
+  },
+  "gpu_discipline": {
+    "learned_specialist": "ChangeUNet_SyntheticDev",
+    "evidence_registered_before_unload": true,
+    "cuda_cache_cleared_after_registration": true,
+    "qwen2_vl_loaded": false
+  },
+  "alignment": {
+    "analysis_type": "multimodal_alignment",
+    "status": "incompatible",
+    "compatibility": {
+      "status": "incompatible",
+      "evidence_ids": [
+        "CHG_sentinel2_4band_sentinel2_4band_53b92bdf3587",
+        "SAR_S1A_IW_GRDH_1SDV_07E290_VV_PUNE_AOI_EPSG32643_10m_121a46ff"
+      ],
+      "modalities": [
+        "optical",
+        "sar"
+      ],
+      "sensors": [
+        "Sentinel-2",
+        "Sentinel-1"
+      ],
+      "spatial": {
+        "crs_compatible": true,
+        "reprojection_possible": true,
+        "overlap": true,
+        "overlap_fraction": 0.9998602990235894,
+        "optical_crs": "EPSG:32643",
+        "sar_crs": "EPSG:32643",
+        "optical_bounds": [
+          362680.0,
+          2034760.0,
+          389250.0,
+          2062600.0
+        ],
+        "sar_bounds": [
+          362682.71629021264,
+          2034758.9567423451,
+          389252.71629021264,
+          2062598.9567423451
+        ]
+      },
+      "resolution": {
+        "optical": 10.0,
+        "sar": 10.0,
+        "ratio": 1.0,
+        "compatible": true
+      },
+      "temporal": {
+        "optical_timestamp": "2026-04-23T05:30:21.025000+00:00",
+        "sar_timestamp": "2026-01-21T00:55:24.034638+00:00",
+        "timestamp_delta_seconds": 7965296.990362,
+        "max_allowed_seconds": 86400.0,
+        "compatible": false
+      },
+      "sensor": {
+        "optical": "Sentinel-2",
+        "sar": "Sentinel-1"
+      },
+      "provenance": {
+        "complete": true,
+        "optical": {
+          "method": "siamese_change_unet",
+          "specialist": "LearnedChangeSpecialist",
+          "checkpoint": "/home/lenovo/satquery-ai/outputs/checkpoints/change_unet_synthetic_dev.pt",
+          "before": "/home/lenovo/satquery-ai/data/remote_sensing/optical/sentinel2/processed/pune_temporal/before_20260413/sentinel2_4band.tif",
+          "after": "/home/lenovo/satquery-ai/data/remote_sensing/optical/sentinel2/processed/pune_temporal/after_20260423/sentinel2_4band.tif",
+          "image_path": "/home/lenovo/satquery-ai/data/remote_sensing/optical/sentinel2/processed/pune_temporal/after_20260423/sentinel2_4band.tif",
+          "crs": "EPSG:32643",
+          "sensor": "Sentinel-2",
+          "before_timestamp": "2026-04-13T05:30:21.025000+00:00",
+          "after_timestamp": "2026-04-23T05:30:21.025000+00:00",
+          "temporal_separation_seconds": 864000.0,
+          "temporal_separation_days": 10.0,
+          "perception_status": "CONNECTED",
+          "training_dataset": "SpaceNet4-derived synthetic development data",
+          "training_scope": "single-scene development split",
+          "confidence_calibration": "NOT_CALIBRATED",
+          "development_warning": "This checkpoint was trained on controlled synthetic changes and is not a real-world benchmark model."
+        },
+        "sar": {
+          "image_path": "/home/lenovo/satquery-ai/data/remote_sensing/sentinel1/processed/S1A_IW_GRDH_1SDV_07E290_VV_PUNE_AOI_EPSG32643_10m.tif",
+          "model_name": "SAR_Deterministic_Characterizer",
+          "analysis_type": "deterministic_sar_characterization",
+          "device": "cpu",
+          "perception_status": "CONNECTED",
+          "confidence_calibration": "NOT_CALIBRATED",
+          "data_status": "real_validation",
+          "risat_validated": false,
+          "learned_detection": false
+        }
+      },
+      "reasons": [
+        "Acquisition times exceed the configured temporal compatibility window."
+      ]
+    },
+    "source_evidence_ids": [
+      "CHG_sentinel2_4band_sentinel2_4band_53b92bdf3587",
+      "SAR_S1A_IW_GRDH_1SDV_07E290_VV_PUNE_AOI_EPSG32643_10m_121a46ff"
+    ]
+  },
+  "verification": {
+    "status": "abstain",
+    "verified": false,
+    "confidence": 0.8245170434315999,
+    "reasons": [
+      "Conflicting evidence was detected."
+    ],
+    "evidence_ids": [
+      "CHG_sentinel2_4band_sentinel2_4band_53b92bdf3587",
+      "SAR_S1A_IW_GRDH_1SDV_07E290_VV_PUNE_AOI_EPSG32643_10m_121a46ff",
+      "MM_887564659b26"
+    ],
+    "conflicts": [
+      "Multimodal Evidence is incompatible: Acquisition times exceed the configured temporal compatibility window."
+    ],
+    "recommended_action": "abstain",
+    "vqa_claim_status": null
+  },
+  "limitations": [
+    "Sentinel-1 acquisition is 2026-01-21; Sentinel-2 T2 is 2026-04-23.",
+    "The observations exceed the configured one-day temporal compatibility window.",
+    "SAR characterization is not a temporal change detector and cannot establish agreement or disagreement with optical change.",
+    "Sentinel-1 is infrastructure validation only and is not RISAT validation.",
+    "ChangeUNet confidence is NOT_CALIBRATED and is not a probability."
+  ]
+}

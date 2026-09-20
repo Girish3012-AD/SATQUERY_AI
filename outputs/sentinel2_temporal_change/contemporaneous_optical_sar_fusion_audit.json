@@ -1,0 +1,13 @@
+{
+  "fusion_type": "optical_sar_contemporaneous",
+  "optical_source": "Sentinel-2",
+  "sar_source": "Sentinel-1",
+  "alignment_status": "compatible",
+  "temporal_gap_days": 1.0002433449074073,
+  "cross_modal_disagreements": [],
+  "verification": {
+    "status": "verified",
+    "verified": true,
+    "confidence": 0.92
+  }
+}

@@ -145,6 +145,8 @@ class SARSpecialist(Specialist):
             )
         )
 
+        timestamp = parameters.get("timestamp")
+
         polarization = parameters.get("polarization")
         band = parameters.get("band")
 
@@ -291,6 +293,7 @@ class SARSpecialist(Specialist):
             model=self.MODEL_NAME,
             sensor=sensor,
             modality="sar",
+            timestamp=str(timestamp) if timestamp else None,
             geometry=None,
             measurement=measurement,
             result=result,

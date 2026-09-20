@@ -11,3 +11,25 @@ outputs/
 
 # Local remote-sensing datasets
 /data/remote_sensing/
+
+# Ignore large Remote Sensing datasets and weights
+data/remote_sensing/optical/**/*.tif
+outputs/checkpoints/*.pt
+outputs/checkpoints/*.pth
+**/*.tif
+**/*.tiff
+
+# Keep JSON audits and the HTML dashboard
+!outputs/sentinel2_temporal_change/*.json
+!sih_dashboard.html
+
+# Ignore large Remote Sensing datasets and weights
+data/remote_sensing/optical/**/*.tif
+outputs/checkpoints/*.pt
+outputs/checkpoints/*.pth
+**/*.tif
+**/*.tiff
+
+# Keep JSON audits and the HTML dashboard
+!outputs/sentinel2_temporal_change/*.json
+!sih_dashboard.html

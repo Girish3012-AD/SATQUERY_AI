@@ -50,6 +50,7 @@ class EvidencePlanner:
                     step_id="T1",
                     task="temporal_analysis",
                     operation="temporal_analysis",
+                    parameters=dict(task_spec.parameters),
                 )
             )
 
@@ -146,8 +147,38 @@ class EvidencePlanner:
                     )
                 )
 
+        # Temporal change geospatialization
+        #
+        # Temporal specialists produce raster change evidence. Spatial
+        # operations such as area/distance/intersection require geometry.
+        # Insert a deterministic geospatialization stage between temporal
+        # perception and GIS execution.
+        temporal_step_ids = [
+            step.step_id
+            for step in steps
+            if step.operation == "temporal_analysis"
+        ]
+
+        if (
+            temporal_step_ids
+            and task_spec.spatial_operations
+        ):
+            steps.append(
+                PlanStep(
+                    step_id=f"T{len(steps) + 1}",
+                    task="temporal_change_geospatialization",
+                    operation="change_geospatialization",
+                    depends_on=temporal_step_ids.copy(),
+                    parameters=dict(task_spec.parameters),
+                )
+            )
+
         # Spatial operations
-        previous_ids = [step.step_id for step in steps]
+        # Each GIS operation consumes only the immediately preceding
+        # evidence-producing step. This keeps the execution chain
+        # linear and prevents stale upstream dependencies from being
+        # reintroduced.
+        previous_ids = [steps[-1].step_id] if steps else []
 
         for operation in task_spec.spatial_operations:
             step_id = f"T{len(steps) + 1}"

@@ -62,27 +62,78 @@ def predict_change_raster(
             f"After raster does not exist: {after_path}"
         )
 
-    with rasterio.open(before_path) as before_ds:
-        before_data = before_ds.read()
+    before_crs = None
+    after_crs = None
+    before_transform = None
+    after_transform = None
 
-        before_shape = (
-            before_ds.height,
-            before_ds.width,
+    if before_path.suffix.lower() == ".npy":
+        before_data = np.load(before_path)
+    else:
+        with rasterio.open(before_path) as before_ds:
+            before_data = before_ds.read()
+            before_crs = before_ds.crs
+            before_transform = before_ds.transform
+
+    if after_path.suffix.lower() == ".npy":
+        after_data = np.load(after_path)
+    else:
+        with rasterio.open(after_path) as after_ds:
+            after_data = after_ds.read()
+            after_crs = after_ds.crs
+            after_transform = after_ds.transform
+
+    if before_data.ndim == 2:
+        before_data = before_data[np.newaxis, ...]
+
+    if after_data.ndim == 2:
+        after_data = after_data[np.newaxis, ...]
+
+    if before_data.ndim != 3:
+        raise ValueError(
+            "Before temporal input must have shape "
+            "(bands, height, width): "
+            f"{before_path}"
         )
 
-        before_crs = before_ds.crs
-        before_transform = before_ds.transform
-
-    with rasterio.open(after_path) as after_ds:
-        after_data = after_ds.read()
-
-        after_shape = (
-            after_ds.height,
-            after_ds.width,
+    if after_data.ndim != 3:
+        raise ValueError(
+            "After temporal input must have shape "
+            "(bands, height, width): "
+            f"{after_path}"
         )
 
-        after_crs = after_ds.crs
-        after_transform = after_ds.transform
+    before_data = before_data.astype(
+        np.float32,
+        copy=False,
+    )
+
+    after_data = after_data.astype(
+        np.float32,
+        copy=False,
+    )
+
+    if not np.isfinite(before_data).all():
+        raise ValueError(
+            f"Before temporal input contains non-finite values: "
+            f"{before_path}"
+        )
+
+    if not np.isfinite(after_data).all():
+        raise ValueError(
+            f"After temporal input contains non-finite values: "
+            f"{after_path}"
+        )
+
+    before_shape = (
+        before_data.shape[1],
+        before_data.shape[2],
+    )
+
+    after_shape = (
+        after_data.shape[1],
+        after_data.shape[2],
+    )
 
     if before_shape != after_shape:
         raise ValueError(
@@ -102,21 +153,24 @@ def predict_change_raster(
             f"found {before_data.shape[0]}"
         )
 
-    if before_crs is None or after_crs is None:
-        raise ValueError(
-            "Both rasters must have valid CRS."
-        )
+    # GeoTIFF inputs must carry matching geospatial metadata.
+    # NumPy development patches intentionally have no CRS/transform.
+    if before_crs is not None or after_crs is not None:
+        if before_crs is None or after_crs is None:
+            raise ValueError(
+                "Both GeoTIFF rasters must have valid CRS."
+            )
 
-    if before_crs != after_crs:
-        raise ValueError(
-            "Before/after CRS differ: "
-            f"{before_crs} vs {after_crs}"
-        )
+        if before_crs != after_crs:
+            raise ValueError(
+                "Before/after CRS differ: "
+                f"{before_crs} vs {after_crs}"
+            )
 
-    if before_transform != after_transform:
-        raise ValueError(
-            "Before/after transforms differ."
-        )
+        if before_transform != after_transform:
+            raise ValueError(
+                "Before/after transforms differ."
+            )
 
     height, width = before_shape
 

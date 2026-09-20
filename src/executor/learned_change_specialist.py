@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
+from datetime import datetime, timezone
 from typing import Any
 
 import numpy as np
@@ -59,6 +60,20 @@ class LearnedChangeSpecialist(Specialist):
 
         return self._model, self._device
 
+    def unload(self) -> None:
+        """Release the learned model after its Evidence has been recorded."""
+        self._model = None
+        self._device = None
+
+        try:
+            import torch
+
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except ImportError:
+            # CPU-only environments do not need CUDA cache cleanup.
+            pass
+
     @staticmethod
     def _make_evidence_id(
         before: Path,
@@ -94,6 +109,67 @@ class LearnedChangeSpecialist(Specialist):
             )
 
         parameters = parameters or {}
+
+        # Optional real-data temporal metadata.
+        #
+        # These values describe the acquisition pair and do not
+        # alter ChangeUNet inference itself.
+        before_timestamp = parameters.get(
+            "before_timestamp"
+        )
+
+        after_timestamp = parameters.get(
+            "after_timestamp"
+        )
+
+        sensor = parameters.get(
+            "sensor",
+            "Sentinel-2"
+        )
+
+        temporal_separation_seconds = None
+        temporal_separation_days = None
+
+        if before_timestamp and after_timestamp:
+
+            before_dt = datetime.fromisoformat(
+                str(before_timestamp).replace(
+                    "Z",
+                    "+00:00"
+                )
+            )
+
+            after_dt = datetime.fromisoformat(
+                str(after_timestamp).replace(
+                    "Z",
+                    "+00:00"
+                )
+            )
+
+            if before_dt.tzinfo is None:
+                before_dt = before_dt.replace(
+                    tzinfo=timezone.utc
+                )
+
+            if after_dt.tzinfo is None:
+                after_dt = after_dt.replace(
+                    tzinfo=timezone.utc
+                )
+
+            temporal_separation_seconds = (
+                after_dt - before_dt
+            ).total_seconds()
+
+            if temporal_separation_seconds < 0:
+                raise ValueError(
+                    "after_timestamp must not precede "
+                    "before_timestamp."
+                )
+
+            temporal_separation_days = (
+                temporal_separation_seconds
+                / 86400.0
+            )
 
         threshold = float(
             parameters.get(
@@ -170,6 +246,10 @@ class LearnedChangeSpecialist(Specialist):
             "prediction_shape": list(mask.shape),
             "covered_width": prediction["covered_width"],
             "covered_height": prediction["covered_height"],
+            # Raster evidence contract consumed by ChangeGeospatializer.
+            "mask": mask,
+            "transform": prediction["transform"],
+            "crs": prediction["crs"],
         }
 
         provenance = {
@@ -186,9 +266,17 @@ class LearnedChangeSpecialist(Specialist):
             "after": str(
                 after.resolve()
             ),
+            "image_path": str(after.resolve()),
             "crs": str(
                 prediction["crs"]
             ),
+            "sensor": sensor,
+            "before_timestamp": before_timestamp,
+            "after_timestamp": after_timestamp,
+            "temporal_separation_seconds":
+                temporal_separation_seconds,
+            "temporal_separation_days":
+                temporal_separation_days,
             "perception_status": "CONNECTED",
             "training_dataset": (
                 "SpaceNet4-derived synthetic "
@@ -215,8 +303,11 @@ class LearnedChangeSpecialist(Specialist):
             source="learned_change_specialist",
             task=self.capability,
             model="ChangeUNet_SyntheticDev",
-            sensor=None,
+            sensor=sensor,
             modality="optical",
+            # Temporal change refers to the after image, allowing the
+            # existing alignment checker to compare it with SAR evidence.
+            timestamp=after_timestamp,
             geometry=None,
             measurement={
                 "change_percentage": (
@@ -241,5 +332,12 @@ class LearnedChangeSpecialist(Specialist):
                 "shape": list(mask.shape),
                 "band_count": 4,
                 "device": str(device),
+                "sensor": sensor,
+                "before_timestamp": before_timestamp,
+                "after_timestamp": after_timestamp,
+                "temporal_separation_seconds":
+                    temporal_separation_seconds,
+                "temporal_separation_days":
+                    temporal_separation_days,
             },
         )

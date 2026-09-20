@@ -67,6 +67,54 @@ class ChangeSpecialist(Specialist):
     def _read_comparable_data(
         path: Path,
     ) -> tuple[np.ndarray, Any, str | None, tuple[int, int]]:
+        """
+        Read a temporal input from a supported raster format.
+
+        GeoTIFF:
+            Returns pixel data together with transform and CRS.
+
+        NumPy .npy:
+            Supports development/training temporal patches stored as
+            arrays with shape (bands, height, width). These arrays do
+            not carry geospatial CRS/transform metadata, so metadata
+            fields are returned as None rather than being invented.
+        """
+        if path.suffix.lower() == ".npy":
+            data = np.load(path)
+
+            if data.size == 0:
+                raise ValueError(
+                    f"Raster contains no pixel data: {path}"
+                )
+
+            if data.ndim == 2:
+                data = data[np.newaxis, ...]
+            elif data.ndim != 3:
+                raise ValueError(
+                    "NumPy temporal input must have shape "
+                    "(bands, height, width) or (height, width): "
+                    f"{path}"
+                )
+
+            if data.shape[1] <= 0 or data.shape[2] <= 0:
+                raise ValueError(
+                    f"NumPy temporal input has invalid dimensions: {path}"
+                )
+
+            data = data.astype(np.float32)
+
+            if not np.isfinite(data).all():
+                raise ValueError(
+                    f"NumPy temporal input contains non-finite values: {path}"
+                )
+
+            return (
+                data,
+                None,
+                None,
+                (data.shape[1], data.shape[2]),
+            )
+
         with rasterio.open(path) as dataset:
             if dataset.crs is None:
                 raise ValueError(

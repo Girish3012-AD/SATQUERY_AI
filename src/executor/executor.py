@@ -8,6 +8,7 @@ from src.verifier.vqa_consistency import evaluate_vqa_consistency
 from .execution_result import ExecutionResult
 from .gis_executor import GISEvidenceExecutor
 from .multimodal_executor import MultimodalEvidenceExecutor
+from .change_geospatializer import ChangeGeospatializer
 from .specialist import Specialist
 
 
@@ -33,6 +34,7 @@ class ExecutionEngine:
         self.multimodal_executor = MultimodalEvidenceExecutor(
             evidence_registry
         )
+        self.change_geospatializer = ChangeGeospatializer()
 
     def register_specialist(self, specialist: Specialist) -> None:
         if specialist.capability in self.specialists:
@@ -69,19 +71,44 @@ class ExecutionEngine:
                 ),
             )
 
-        evidence = specialist.infer(
-            inputs or [],
-            parameters=step.parameters,
-        )
+        # Temporal specialists require an explicit before/after raster
+        # pair. The planner stores these paths in step.parameters, while
+        # the Specialist contract receives raster inputs separately.
+        specialist_inputs = list(inputs or [])
 
-        # When orchestration selected a concrete model, make that selection
-        # authoritative in the evidence record.
-        if selected_model:
-            evidence = evidence.model_copy(
-                update={"model": selected_model}
+        if (
+            step.operation == "temporal_analysis"
+            and not specialist_inputs
+        ):
+            before = step.parameters.get("before")
+            after = step.parameters.get("after")
+
+            if before and after:
+                specialist_inputs = [
+                    str(before),
+                    str(after),
+                ]
+
+        try:
+            evidence = specialist.infer(
+                specialist_inputs,
+                parameters=step.parameters,
             )
 
-        self.evidence_registry.add(evidence)
+            # When orchestration selected a concrete model, make that selection
+            # authoritative in the evidence record.
+            if selected_model:
+                evidence = evidence.model_copy(
+                    update={"model": selected_model}
+                )
+
+            self.evidence_registry.add(evidence)
+        finally:
+            # Learned specialists may retain CUDA allocations. Evidence holds
+            # CPU-native results, so release the model after registration.
+            unload = getattr(specialist, "unload", None)
+            if callable(unload):
+                unload()
 
         return ExecutionResult(
             success=True,
@@ -221,6 +248,55 @@ class ExecutionEngine:
                 specialist_override=specialist_override,
                 selected_model=selected_model,
             )
+
+        if step.operation == "change_geospatialization":
+            try:
+                if not dependency_evidence_ids:
+                    raise ValueError(
+                        "change_geospatialization requires dependency Evidence."
+                    )
+
+                if len(dependency_evidence_ids) != 1:
+                    raise ValueError(
+                        "change_geospatialization requires exactly one "
+                        "temporal Evidence dependency."
+                    )
+
+                source_evidence = self.evidence_registry.get(
+                    dependency_evidence_ids[0]
+                )
+
+                evidence = self.change_geospatializer.execute(
+                    source_evidence
+                )
+
+                # ChangeGeospatializer returns a newly created Evidence
+                # object. Register it before exposing its ID to downstream
+                # dependency-aware execution.
+                self.evidence_registry.add(evidence)
+
+                return ExecutionResult(
+                    success=True,
+                    step_id=step.step_id,
+                    task=step.task,
+                    output=evidence.model_dump(),
+                    evidence_ids=[evidence.evidence_id],
+                    message=(
+                        "Temporal change raster was converted into "
+                        "deterministic geospatial Evidence."
+                    ),
+                )
+
+            except Exception as exc:
+                return ExecutionResult(
+                    success=False,
+                    step_id=step.step_id,
+                    task=step.task,
+                    message=(
+                        "Change geospatialization failed: "
+                        f"{type(exc).__name__}: {exc}"
+                    ),
+                )
 
         if step.operation == "verification":
             return self.execute_verification(step)

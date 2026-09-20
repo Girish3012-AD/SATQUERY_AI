@@ -1,0 +1,19 @@
+{
+  "project": "SATQuery AI",
+  "sih_code": "PS26167",
+  "team": "CogniSights",
+  "freeze_timestamp": "2026-09-20T02:56:04.429394Z",
+  "environment": {
+    "device": "cuda",
+    "vram_limit": "6GB",
+    "status": "OFFLINE / AIR-GAPPED"
+  },
+  "validated_capabilities": [
+    "N12.2-A: Raster Integrity (PASS)",
+    "N12.2-B: Deterministic GIS & Honesty (PASS)",
+    "N14: Contemporaneous Optical+SAR Fusion (PASS)",
+    "N17: HTML Product Layer Generation (PASS)",
+    "N18: Golden Query Suite Execution (PASS)"
+  ],
+  "architecture_rule": "AI Understands -> GIS Computes -> GeoReason Verifies"
+}

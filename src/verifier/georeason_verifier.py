@@ -399,4 +399,22 @@ class GeoReasonVerifier:
                     )
                 )
 
+            # Multimodal alignment is deterministic evidence about whether
+            # independently produced observations can be interpreted together.
+            # An explicit incompatibility must cause abstention instead of
+            # being averaged into a positive confidence score.
+            if task == "multimodal_alignment":
+                for item in items:
+                    if (
+                        isinstance(item.result, dict)
+                        and item.result.get("status") == "incompatible"
+                    ):
+                        conflicts.append(
+                            "Multimodal Evidence is incompatible: "
+                            + "; ".join(
+                                item.result.get("compatibility", {})
+                                .get("reasons", [])
+                            )
+                        )
+
         return conflicts

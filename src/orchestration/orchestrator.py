@@ -8,6 +8,7 @@ from src.data.input_metadata import InputMetadataResolver
 from src.evidence import EvidenceRegistry
 from src.executor import ExecutionEngine, Specialist
 from src.executor.sar_specialist import SARSpecialist
+from src.executor.temporal_change_specialist import TemporalChangeSpecialist
 from src.executor.vqa_specialist import (
     DEFAULT_ADAPTER_PATH,
     VqaSpecialist,
@@ -98,6 +99,26 @@ class SATQueryOrchestrator:
 
             registry.register(
                 ModelSpec(
+                    name=TemporalChangeSpecialist.MODEL_NAME,
+                    capability=TemporalChangeSpecialist.CAPABILITY,
+                    task_types=["temporal_analysis"],
+                    modalities=["optical"],
+                    status="AVAILABLE",
+                    specialist_name="TemporalChangeSpecialist",
+                    checkpoint="outputs/checkpoints/change_unet_dev.pt",
+                    metadata={
+                        "remote_sensing_adapted": True,
+                        "model_type": "ChangeUNet",
+                        "data_status": "development",
+                        "confidence_calibrated": False,
+                        "scientific_validation": False,
+                        "fallback_available": True,
+                    },
+                )
+            )
+
+            registry.register(
+                ModelSpec(
                     name=VqaSpecialist.MODEL_NAME,
                     capability=VqaSpecialist.CAPABILITY,
                     task_types=["vqa"],
@@ -142,6 +163,7 @@ class SATQueryOrchestrator:
             # Built-in production specialist bindings.
             # Custom callers can still inject their own specialists.
             self.register_specialist(SARSpecialist())
+            self.register_specialist(TemporalChangeSpecialist())
             self.register_specialist(
                 VqaSpecialist(
                     adapter_path=DEFAULT_ADAPTER_PATH,

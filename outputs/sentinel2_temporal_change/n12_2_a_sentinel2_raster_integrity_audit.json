@@ -1,0 +1,340 @@
+{
+  "status": "PASS",
+  "files": {
+    "BEFORE_B02": {
+      "path": "data/remote_sensing/optical/sentinel2/processed/pune_temporal/before_20260413/B02.tif",
+      "width": 2657,
+      "height": 2784,
+      "count": 1,
+      "dtype": [
+        "uint16"
+      ],
+      "crs": "EPSG:32643",
+      "transform": [
+        10.0,
+        0.0,
+        362680.0,
+        0.0,
+        -10.0,
+        2062600.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "resolution": [
+        10.0,
+        10.0
+      ],
+      "bounds": [
+        362680.0,
+        2034760.0,
+        389250.0,
+        2062600.0
+      ],
+      "nodata": 0.0
+    },
+    "BEFORE_B03": {
+      "path": "data/remote_sensing/optical/sentinel2/processed/pune_temporal/before_20260413/B03.tif",
+      "width": 2657,
+      "height": 2784,
+      "count": 1,
+      "dtype": [
+        "uint16"
+      ],
+      "crs": "EPSG:32643",
+      "transform": [
+        10.0,
+        0.0,
+        362680.0,
+        0.0,
+        -10.0,
+        2062600.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "resolution": [
+        10.0,
+        10.0
+      ],
+      "bounds": [
+        362680.0,
+        2034760.0,
+        389250.0,
+        2062600.0
+      ],
+      "nodata": 0.0
+    },
+    "BEFORE_B04": {
+      "path": "data/remote_sensing/optical/sentinel2/processed/pune_temporal/before_20260413/B04.tif",
+      "width": 2657,
+      "height": 2784,
+      "count": 1,
+      "dtype": [
+        "uint16"
+      ],
+      "crs": "EPSG:32643",
+      "transform": [
+        10.0,
+        0.0,
+        362680.0,
+        0.0,
+        -10.0,
+        2062600.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "resolution": [
+        10.0,
+        10.0
+      ],
+      "bounds": [
+        362680.0,
+        2034760.0,
+        389250.0,
+        2062600.0
+      ],
+      "nodata": 0.0
+    },
+    "BEFORE_B08": {
+      "path": "data/remote_sensing/optical/sentinel2/processed/pune_temporal/before_20260413/B08.tif",
+      "width": 2657,
+      "height": 2784,
+      "count": 1,
+      "dtype": [
+        "uint16"
+      ],
+      "crs": "EPSG:32643",
+      "transform": [
+        10.0,
+        0.0,
+        362680.0,
+        0.0,
+        -10.0,
+        2062600.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "resolution": [
+        10.0,
+        10.0
+      ],
+      "bounds": [
+        362680.0,
+        2034760.0,
+        389250.0,
+        2062600.0
+      ],
+      "nodata": 0.0
+    },
+    "AFTER_B02": {
+      "path": "data/remote_sensing/optical/sentinel2/processed/pune_temporal/after_20260423/B02.tif",
+      "width": 2657,
+      "height": 2784,
+      "count": 1,
+      "dtype": [
+        "uint16"
+      ],
+      "crs": "EPSG:32643",
+      "transform": [
+        10.0,
+        0.0,
+        362680.0,
+        0.0,
+        -10.0,
+        2062600.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "resolution": [
+        10.0,
+        10.0
+      ],
+      "bounds": [
+        362680.0,
+        2034760.0,
+        389250.0,
+        2062600.0
+      ],
+      "nodata": null
+    },
+    "AFTER_B03": {
+      "path": "data/remote_sensing/optical/sentinel2/processed/pune_temporal/after_20260423/B03.tif",
+      "width": 2657,
+      "height": 2784,
+      "count": 1,
+      "dtype": [
+        "uint16"
+      ],
+      "crs": "EPSG:32643",
+      "transform": [
+        10.0,
+        0.0,
+        362680.0,
+        0.0,
+        -10.0,
+        2062600.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "resolution": [
+        10.0,
+        10.0
+      ],
+      "bounds": [
+        362680.0,
+        2034760.0,
+        389250.0,
+        2062600.0
+      ],
+      "nodata": null
+    },
+    "AFTER_B04": {
+      "path": "data/remote_sensing/optical/sentinel2/processed/pune_temporal/after_20260423/B04.tif",
+      "width": 2657,
+      "height": 2784,
+      "count": 1,
+      "dtype": [
+        "uint16"
+      ],
+      "crs": "EPSG:32643",
+      "transform": [
+        10.0,
+        0.0,
+        362680.0,
+        0.0,
+        -10.0,
+        2062600.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "resolution": [
+        10.0,
+        10.0
+      ],
+      "bounds": [
+        362680.0,
+        2034760.0,
+        389250.0,
+        2062600.0
+      ],
+      "nodata": null
+    },
+    "AFTER_B08": {
+      "path": "data/remote_sensing/optical/sentinel2/processed/pune_temporal/after_20260423/B08.tif",
+      "width": 2657,
+      "height": 2784,
+      "count": 1,
+      "dtype": [
+        "uint16"
+      ],
+      "crs": "EPSG:32643",
+      "transform": [
+        10.0,
+        0.0,
+        362680.0,
+        0.0,
+        -10.0,
+        2062600.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "resolution": [
+        10.0,
+        10.0
+      ],
+      "bounds": [
+        362680.0,
+        2034760.0,
+        389250.0,
+        2062600.0
+      ],
+      "nodata": null
+    },
+    "BEFORE_STACK": {
+      "path": "data/remote_sensing/optical/sentinel2/processed/pune_temporal/before_20260413/sentinel2_4band.tif",
+      "width": 2657,
+      "height": 2784,
+      "count": 4,
+      "dtype": [
+        "uint16",
+        "uint16",
+        "uint16",
+        "uint16"
+      ],
+      "crs": "EPSG:32643",
+      "transform": [
+        10.0,
+        0.0,
+        362680.0,
+        0.0,
+        -10.0,
+        2062600.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "resolution": [
+        10.0,
+        10.0
+      ],
+      "bounds": [
+        362680.0,
+        2034760.0,
+        389250.0,
+        2062600.0
+      ],
+      "nodata": 0.0
+    },
+    "AFTER_STACK": {
+      "path": "data/remote_sensing/optical/sentinel2/processed/pune_temporal/after_20260423/sentinel2_4band.tif",
+      "width": 2657,
+      "height": 2784,
+      "count": 4,
+      "dtype": [
+        "uint16",
+        "uint16",
+        "uint16",
+        "uint16"
+      ],
+      "crs": "EPSG:32643",
+      "transform": [
+        10.0,
+        0.0,
+        362680.0,
+        0.0,
+        -10.0,
+        2062600.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "resolution": [
+        10.0,
+        10.0
+      ],
+      "bounds": [
+        362680.0,
+        2034760.0,
+        389250.0,
+        2062600.0
+      ],
+      "nodata": null
+    }
+  },
+  "failures": [],
+  "temporal_checks": {
+    "same_dimensions": true,
+    "same_crs": true,
+    "same_transform": true,
+    "same_resolution": true,
+    "same_bounds": true
+  },
+  "scientific_validation": false
+}

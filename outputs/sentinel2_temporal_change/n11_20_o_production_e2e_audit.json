@@ -1,0 +1,77 @@
+{
+  "status": "PASS",
+  "task_id": "N11_20_O_PRODUCTION_TEMPORAL_AREA",
+  "before": "data/remote_sensing/optical/sentinel2/processed/pune_temporal/before_20260413/sentinel2_4band.tif",
+  "after": "data/remote_sensing/optical/sentinel2/processed/pune_temporal/after_20260423/sentinel2_4band.tif",
+  "plan": [
+    {
+      "step_id": "T1",
+      "task": "temporal_analysis",
+      "operation": "temporal_analysis",
+      "depends_on": []
+    },
+    {
+      "step_id": "T2",
+      "task": "temporal_change_geospatialization",
+      "operation": "change_geospatialization",
+      "depends_on": [
+        "T1"
+      ]
+    },
+    {
+      "step_id": "T3",
+      "task": "area",
+      "operation": "area",
+      "depends_on": [
+        "T2"
+      ]
+    },
+    {
+      "step_id": "T4",
+      "task": "verification",
+      "operation": "verification",
+      "depends_on": [
+        "T3"
+      ]
+    }
+  ],
+  "step_evidence": {
+    "T1": [
+      "CHG_sentinel2_4band_sentinel2_4band_53b92bdf3587"
+    ],
+    "T2": [
+      "CHG_GEO_214aee6b6d7a"
+    ],
+    "T3": [
+      "E-GIS-AREA-0003"
+    ],
+    "T4": [
+      "CHG_sentinel2_4band_sentinel2_4band_53b92bdf3587",
+      "CHG_GEO_214aee6b6d7a",
+      "E-GIS-AREA-0003"
+    ]
+  },
+  "temporal_evidence": "CHG_sentinel2_4band_sentinel2_4band_53b92bdf3587",
+  "geospatial_evidence": "CHG_GEO_214aee6b6d7a",
+  "gis_evidence": "E-GIS-AREA-0003",
+  "area_m2": 110934100.0,
+  "area_km2": 110.9341,
+  "crs": "EPSG:32643",
+  "verification": {
+    "status": "verified",
+    "verified": true,
+    "confidence": 0.8735511302947998,
+    "reasons": [
+      "Evidence satisfies the configured verification criteria."
+    ],
+    "evidence_ids": [
+      "CHG_sentinel2_4band_sentinel2_4band_53b92bdf3587",
+      "CHG_GEO_214aee6b6d7a",
+      "E-GIS-AREA-0003"
+    ],
+    "conflicts": [],
+    "recommended_action": "accept",
+    "vqa_claim_status": null
+  },
+  "scientific_validation": false
+}
