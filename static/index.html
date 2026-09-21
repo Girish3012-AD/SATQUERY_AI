@@ -30,7 +30,14 @@
     <main class="container">
         <!-- PANEL 1: Query Input -->
         <section id="query-panel" class="panel panel--blue" style="grid-column: 1 / -1;">
-            <h2>Natural-Language Query</h2>
+            <h2>Natural-Language Query & Data Input</h2>
+            <div style="margin-bottom:12px; padding:10px; border:1px dashed #3498db; border-radius:6px; background:#f4f7f6;">
+                <label for="file-upload" style="font-weight:bold; display:block; margin-bottom:5px;">📁 Upload Image/Raster (.tif, .png, .jpg)</label>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <input type="file" id="file-upload" accept=".tif,.tiff,.png,.jpg,.jpeg" onchange="app.handleFileUpload(event)">
+                    <span id="upload-status" style="font-size:0.9em; color:#7f8c8d;">No file selected</span>
+                </div>
+            </div>
             <div class="query-input-group">
                 <textarea id="query-input" rows="3" placeholder="Enter your geographic query..."></textarea>
                 <button id="submit-btn" class="submit-btn" onclick="app.submitQuery()">▶ Execute Query</button>

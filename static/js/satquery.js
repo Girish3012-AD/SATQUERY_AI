@@ -42,6 +42,7 @@ class SATQueryApp {
         this.mapLayers = [];
         this.currentResult = null;
         this.currentMode = "ready"; // ready | live | replay
+        this.uploadedFilePath = null;
     }
 
     /* ---------- Initialization ---------- */
@@ -112,6 +113,49 @@ class SATQueryApp {
         if (textarea) textarea.value = demo.query;
     }
 
+    /* ---------- File Upload ---------- */
+
+    async handleFileUpload(event) {
+        const file = event.target.files[0];
+        const statusEl = document.getElementById("upload-status");
+        if (!file) {
+            this.uploadedFilePath = null;
+            if (statusEl) statusEl.textContent = "No file selected";
+            return;
+        }
+
+        if (statusEl) {
+            statusEl.textContent = "Uploading...";
+            statusEl.style.color = "#3498db";
+        }
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        try {
+            const resp = await fetch("/api/upload", {
+                method: "POST",
+                body: formData
+            });
+            const data = await resp.json();
+
+            if (!resp.ok) {
+                throw new Error(data.detail || "Upload failed");
+            }
+
+            this.uploadedFilePath = data.file_path;
+            if (statusEl) {
+                statusEl.innerHTML = `✅ <span style="color:#2ecc71;">Uploaded: ${data.filename} (${(data.size_bytes/1024).toFixed(1)} KB)</span>`;
+            }
+        } catch (e) {
+            this.uploadedFilePath = null;
+            if (statusEl) {
+                statusEl.innerHTML = `❌ <span style="color:#e74c3c;">${e.message}</span>`;
+            }
+            event.target.value = ""; // Reset file input
+        }
+    }
+
     /* ---------- Live query execution ---------- */
 
     async submitQuery() {
@@ -127,10 +171,11 @@ class SATQueryApp {
         this.clearResults();
 
         try {
+            const inputs = this.uploadedFilePath ? [this.uploadedFilePath] : [];
             const resp = await fetch("/api/query", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ query: query, inputs: [], parameters: {} }),
+                body: JSON.stringify({ query: query, inputs: inputs, parameters: {} }),
             });
 
             const data = await resp.json();

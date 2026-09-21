@@ -305,3 +305,47 @@ def test_query_routing_all_types(client):
         assert data["mode"] == "live"
         assert data["query"] == query
         assert "execution_time_seconds" in data
+
+# ---------------------------------------------------------------
+# Test 13: File upload validation
+# ---------------------------------------------------------------
+
+def test_upload_endpoint_success(client, tmp_path):
+    """Test successful image upload."""
+    from PIL import Image
+    import io
+    
+    # Create valid dummy image
+    img = Image.new("RGB", (10, 10), color="blue")
+    img_byte_arr = io.BytesIO()
+    img.save(img_byte_arr, format="JPEG")
+    img_bytes = img_byte_arr.getvalue()
+    
+    resp = client.post(
+        "/api/upload",
+        files={"file": ("test_img.jpg", img_bytes, "image/jpeg")}
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "file_path" in data
+    assert data["filename"] == "test_img.jpg"
+    assert data["extension"] == ".jpg"
+    assert data["size_bytes"] == len(img_bytes)
+
+def test_upload_endpoint_invalid_format(client):
+    """Test rejection of unsupported file extensions."""
+    resp = client.post(
+        "/api/upload",
+        files={"file": ("test_doc.pdf", b"dummy pdf content", "application/pdf")}
+    )
+    assert resp.status_code == 400
+    assert "Unsupported format" in resp.json()["detail"]
+
+def test_upload_endpoint_corrupted_image(client):
+    """Test rejection of corrupted image content."""
+    resp = client.post(
+        "/api/upload",
+        files={"file": ("fake_img.jpg", b"not a real image", "image/jpeg")}
+    )
+    assert resp.status_code == 400
+    assert "Corrupted file" in resp.json()["detail"]

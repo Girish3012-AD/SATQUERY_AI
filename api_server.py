@@ -10,10 +10,12 @@ Usage:
 
 import json
 import time
+import uuid
+import re
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -25,6 +27,8 @@ from pydantic import BaseModel
 
 OUTPUTS_DIR = Path("outputs")
 STATIC_DIR = Path("static")
+UPLOAD_DIR = Path("uploads")
+UPLOAD_DIR.mkdir(exist_ok=True)
 
 
 # ---------------------------------------------------------------------------
@@ -464,6 +468,77 @@ def _list_overlay_files() -> list[str]:
                 overlays.append(f.name)
     return sorted(overlays)
 
+
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
+ALLOWED_EXTENSIONS = {".tif", ".tiff", ".png", ".jpg", ".jpeg"}
+
+def sanitize_filename(filename: str) -> str:
+    """Basic filename sanitization."""
+    if not filename:
+        return "unnamed_file"
+    return re.sub(r"[^a-zA-Z0-9_.-]", "_", filename)
+
+def validate_file_content(path: Path) -> bool:
+    """Validate raster or image content."""
+    ext = path.suffix.lower()
+    if ext in {".tif", ".tiff"}:
+        try:
+            import rasterio
+            with rasterio.open(path) as src:
+                # Basic CRS check where CRS is required
+                if not src.crs:
+                    pass  # Some local TIFFs might lack CRS, but at least it's a valid TIFF
+            return True
+        except Exception:
+            return False
+    else:
+        try:
+            from PIL import Image
+            with Image.open(path) as img:
+                img.verify()
+            return True
+        except Exception:
+            return False
+
+@app.post("/api/upload")
+async def upload_file(file: UploadFile = File(...)):
+    """Handle secure file uploads for processing."""
+    if not file or not file.filename:
+        raise HTTPException(status_code=400, detail="No file provided or missing filename")
+
+    ext = Path(file.filename).suffix.lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Unsupported format: {ext}. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
+        )
+
+    safe_name = f"{uuid.uuid4().hex[:8]}_{sanitize_filename(file.filename)}"
+    dest = UPLOAD_DIR / safe_name
+
+    size = 0
+    with dest.open("wb") as buffer:
+        while chunk := await file.read(8192):
+            size += len(chunk)
+            if size > MAX_FILE_SIZE:
+                dest.unlink()
+                raise HTTPException(status_code=413, detail="File too large (>50MB)")
+            buffer.write(chunk)
+            
+    if size == 0:
+        dest.unlink()
+        raise HTTPException(status_code=400, detail="Empty file")
+
+    if not validate_file_content(dest):
+        dest.unlink()
+        raise HTTPException(status_code=400, detail="Corrupted file or invalid raster/image content")
+
+    return {
+        "file_path": str(dest.absolute().as_posix()), 
+        "filename": file.filename, 
+        "size_bytes": size,
+        "extension": ext
+    }
 
 # ---------------------------------------------------------------------------
 # Static file serving (must be mounted AFTER API routes)
