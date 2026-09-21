@@ -123,8 +123,8 @@ def resolve_request_inputs(request: QueryRequest) -> tuple[str, list[str]]:
     Resolve query text and real satellite input paths for demo presets automatically.
     
     If the caller supplied manual inputs, preserve them.
-    If no inputs are supplied and demo_preset or query matches an official demo,
-    automatically resolve the validated real input files from DEMO_INPUT_REGISTRY.
+    If no inputs are supplied, automatically map to validated sample inputs from DEMO_INPUT_REGISTRY
+    using preset keys, exact/fuzzy query matching, or fallback sample rasters.
     """
     query = request.query.strip()
     preset_key = request.demo_preset or QUERY_TO_PRESET_MAP.get(query)
@@ -135,10 +135,26 @@ def resolve_request_inputs(request: QueryRequest) -> tuple[str, list[str]]:
     if request.inputs:
         return query, request.inputs.copy()
 
+    # Keyword / fuzzy matching if exact query string match was not found
+    if not preset_key and query:
+        q_lower = query.lower()
+        if "sar" in q_lower or "multimodal" in q_lower or "radar" in q_lower:
+            preset_key = "multimodal"
+        elif "water" in q_lower or "grounding" in q_lower or "flood" in q_lower:
+            preset_key = "grounding"
+        elif "change" in q_lower or "spectral" in q_lower:
+            preset_key = "change"
+        elif "building" in q_lower or "hero" in q_lower:
+            preset_key = "hero"
+        elif "vqa" in q_lower or "describe" in q_lower or "land-cover" in q_lower:
+            preset_key = "vqa"
+
     if preset_key and preset_key in DEMO_INPUT_REGISTRY:
         return query, DEMO_INPUT_REGISTRY[preset_key].copy()
 
-    return query, []
+    # Fallback to default sample dataset raster when no inputs are attached to a free-form query
+    fallback_sample = str(Path("data/samples/test.tif").resolve().as_posix())
+    return query, [fallback_sample, fallback_sample]
 
 
 # ---------------------------------------------------------------------------
