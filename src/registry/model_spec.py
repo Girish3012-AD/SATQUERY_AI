@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -14,6 +16,6 @@ class ModelSpec(BaseModel):
     checkpoint: str | None = None
     version: str | None = None
 
-    metadata: dict[str, str | int | float | bool] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict
     )

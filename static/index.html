@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SATQuery AI | SIH 2026</title>
+    <link rel="stylesheet" href="/static/css/satquery.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin="" />
+</head>
+<body>
+    <!-- Mode indicator (top-right corner) -->
+    <div id="mode-indicator" class="mode-indicator">
+        <span class="status-badge status-badge--live">READY</span>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+        <h1>🛰️ SATQuery AI</h1>
+        <span class="badge">Smart India Hackathon 2026</span>
+    </header>
+
+    <div class="tagline">
+        <span style="color:#3498db;">AI UNDERSTANDS</span> &nbsp;➔&nbsp;
+        <span style="color:#2ecc71;">GIS COMPUTES</span> &nbsp;➔&nbsp;
+        <span style="color:#9b59b6;">GeoReason VERIFIES</span>
+    </div>
+
+    <main class="container">
+        <!-- PANEL 1: Query Input -->
+        <section id="query-panel" class="panel panel--blue" style="grid-column: 1 / -1;">
+            <h2>Natural-Language Query</h2>
+            <div class="query-input-group">
+                <textarea id="query-input" rows="3" placeholder="Enter your geographic query..."></textarea>
+                <button id="submit-btn" class="submit-btn" onclick="app.submitQuery()">▶ Execute Query</button>
+            </div>
+            <div class="demo-queries">
+                <h3>Representative Queries (Live Execution)</h3>
+                <button class="demo-btn" onclick="app.setDemoQuery(0)">🔍 VQA — Land-cover description</button>
+                <button class="demo-btn" onclick="app.setDemoQuery(1)">💧 Water Grounding — Highlight water body</button>
+                <button class="demo-btn" onclick="app.setDemoQuery(2)">📅 Temporal Change — What changed?</button>
+                <button class="demo-btn" onclick="app.setDemoQuery(3)">🏗️ Hero Reasoning — Buildings near floods</button>
+            </div>
+            <div class="replay-section">
+                <h3>📂 Audit Replay <span class="status-badge status-badge--replay">SECONDARY</span></h3>
+                <p style="color:#7f8c8d; font-size:0.9em;">Replay verified pipeline outputs for offline demonstration. These are real outputs from previous live executions.</p>
+                <div id="audit-list"></div>
+            </div>
+        </section>
+
+        <!-- Loading Overlay -->
+        <div id="loading-overlay" class="loading-overlay" style="display:none;">
+            <div class="spinner"></div>
+            <p id="loading-text">Executing query through real SATQuery pipeline...</p>
+        </div>
+
+        <!-- PANEL 2: Input Data / Scene Selection -->
+        <section id="scene-panel" class="panel panel--blue hidden">
+            <h2>📡 Input Data</h2>
+            <div id="scene-content"></div>
+        </section>
+
+        <!-- PANEL 3: Execution Status -->
+        <section id="status-panel" class="panel panel--blue hidden">
+            <h2>⚡ Execution Status</h2>
+            <div id="status-content"></div>
+        </section>
+
+        <!-- PANEL 4: Final Answer -->
+        <section id="answer-panel" class="panel panel--green hidden">
+            <h2>✅ Final Answer</h2>
+            <div id="answer-content"></div>
+        </section>
+
+        <!-- PANEL 5: Interactive Map -->
+        <section id="map-panel" class="panel hidden" style="grid-column: 1 / -1;">
+            <h2>🗺️ Interactive Map</h2>
+            <div id="map"></div>
+        </section>
+
+        <!-- PANEL 6: Evidence -->
+        <section id="evidence-panel" class="panel panel--blue hidden">
+            <h2>🔬 Evidence</h2>
+            <div id="evidence-content"></div>
+        </section>
+
+        <!-- PANEL 7: Confidence / Calibration -->
+        <section id="confidence-panel" class="panel panel--purple hidden">
+            <h2>📊 Confidence & Calibration</h2>
+            <div id="confidence-content"></div>
+        </section>
+
+        <!-- PANEL 8: Execution Trace -->
+        <section id="trace-panel" class="panel hidden" style="grid-column: 1 / -1;">
+            <h2>📋 Execution Trace</h2>
+            <div id="trace-content"></div>
+        </section>
+
+        <!-- PANEL 9: Visual Evidence -->
+        <section id="visual-panel" class="panel hidden" style="grid-column: 1 / -1;">
+            <h2>🖼️ Visual Evidence</h2>
+            <div id="visual-content"></div>
+        </section>
+
+        <!-- PANEL 10: Report / Artifact Access -->
+        <section id="report-panel" class="panel panel--green hidden">
+            <h2>📄 Report & Artifacts</h2>
+            <div id="report-content"></div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <p>SATQuery AI — Deterministic Geospatial Reasoning • No hallucinated capabilities • No fabricated evidence</p>
+    </footer>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+    <script src="/static/js/satquery.js"></script>
+</body>
+</html>
