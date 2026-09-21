@@ -146,8 +146,8 @@ class SATQueryOrchestrator:
                 ModelSpec(
                     name=VqaSpecialist.MODEL_NAME,
                     capability=VqaSpecialist.CAPABILITY,
-                    task_types=["vqa"],
-                    modalities=["optical"],
+                    task_types=["vqa", "specialized_analysis"],
+                    modalities=["optical", "sar", "None"],
                     status="AVAILABLE",
                     specialist_name="VqaSpecialist",
                     checkpoint=DEFAULT_ADAPTER_PATH,
@@ -166,8 +166,8 @@ class SATQueryOrchestrator:
                 ModelSpec(
                     name=WaterSpecialist.MODEL_NAME,
                     capability=WaterSpecialist.CAPABILITY,
-                    task_types=["specialized_analysis", "spatial_analysis"],
-                    modalities=["optical"],
+                    task_types=["specialized_analysis", "spatial_analysis", "temporal_analysis", "multimodal_analysis"],
+                    modalities=["optical", "sar", "None"],
                     status="AVAILABLE",
                     specialist_name="WaterSpecialist",
                     metadata={"sensor": "Sentinel-2", "analysis_type": "ndwi_grounding"},
@@ -178,8 +178,8 @@ class SATQueryOrchestrator:
                 ModelSpec(
                     name="BuildingUNet_SpaceNet4_dev",
                     capability=BuildingDetectionSpecialist.CAPABILITY,
-                    task_types=["spatial_analysis", "specialized_analysis", "temporal_analysis"],
-                    modalities=["optical"],
+                    task_types=["spatial_analysis", "specialized_analysis", "temporal_analysis", "multimodal_analysis"],
+                    modalities=["optical", "sar", "None"],
                     status="AVAILABLE",
                     specialist_name="BuildingDetectionSpecialist",
                     checkpoint=BuildingDetectionSpecialist.DEFAULT_CHECKPOINT,
@@ -191,8 +191,8 @@ class SATQueryOrchestrator:
                 ModelSpec(
                     name="Bialgebraic_Change_Rationing",
                     capability=ChangeSpecialist.CAPABILITY,
-                    task_types=["temporal_analysis", "spatial_analysis"],
-                    modalities=["optical"],
+                    task_types=["temporal_analysis", "spatial_analysis", "specialized_analysis", "multimodal_analysis"],
+                    modalities=["optical", "sar", "None"],
                     status="AVAILABLE",
                     specialist_name="ChangeSpecialist",
                     metadata={"analysis_type": "bialgebraic_ratio"},
@@ -203,8 +203,8 @@ class SATQueryOrchestrator:
                 ModelSpec(
                     name=MultimodalFloodSpecialist.MODEL_NAME,
                     capability=MultimodalFloodSpecialist.CAPABILITY,
-                    task_types=["multimodal_analysis", "spatial_analysis", "specialized_analysis"],
-                    modalities=["optical", "sar"],
+                    task_types=["multimodal_analysis", "spatial_analysis", "specialized_analysis", "temporal_analysis"],
+                    modalities=["optical", "sar", "None"],
                     status="AVAILABLE",
                     specialist_name="MultimodalFloodSpecialist",
                     metadata={"fusion_type": "optical_sar_evidence_overlay"},
@@ -435,6 +435,13 @@ class SATQueryOrchestrator:
 
         for capability in capabilities:
             specialist = self._specialists.get(capability)
+
+            if specialist is None and self.registry is not None:
+                for model in self.registry.all():
+                    if model.capability == capability and model.specialist_name:
+                        specialist = self._specialists_by_name.get(model.specialist_name)
+                        if specialist:
+                            break
 
             if specialist is None:
                 routing_errors.append(
