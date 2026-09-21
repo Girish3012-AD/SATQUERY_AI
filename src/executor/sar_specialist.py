@@ -38,13 +38,9 @@ class SARSpecialist(Specialist):
         parameters: dict[str, Any] | None = None,
     ) -> Evidence:
         if not inputs:
-            sample = Path("data/samples/test.tif").resolve()
-            if sample.exists():
-                inputs = [str(sample)]
-            else:
-                raise ValueError(
-                    "SARSpecialist requires at least one raster input."
-                )
+            raise ValueError(
+                "SARSpecialist requires at least one raster input."
+            )
 
         image_path = Path(inputs[0])
 

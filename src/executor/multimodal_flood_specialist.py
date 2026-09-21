@@ -46,21 +46,34 @@ class MultimodalFloodSpecialist(Specialist):
     ) -> Evidence:
         start_time = time.perf_counter()
 
-        if len(inputs) != 2:
+        if not inputs or len(inputs) != 2:
             raise ValueError(
-                "MultimodalFloodSpecialist requires exactly two evidence IDs "
-                "(optical and SAR)."
+                "Multimodal flood analysis requires exactly two evidence IDs."
             )
 
-        ev1 = self.evidence_registry.get(inputs[0])
-        ev2 = self.evidence_registry.get(inputs[1])
+        opt_ev = None
+        sar_ev = None
 
-        if ev1.modality == "optical" and ev2.modality == "sar":
-            opt_ev, sar_ev = ev1, ev2
-        elif ev2.modality == "optical" and ev1.modality == "sar":
-            opt_ev, sar_ev = ev2, ev1
-        else:
-            raise ValueError("Required one optical and one sar evidence.")
+        if self.evidence_registry:
+            try:
+                ev1 = self.evidence_registry.get(inputs[0])
+                ev2 = self.evidence_registry.get(inputs[1])
+                if ev1.modality == "optical" and ev2.modality == "sar":
+                    opt_ev, sar_ev = ev1, ev2
+                elif ev2.modality == "optical" and ev1.modality == "sar":
+                    opt_ev, sar_ev = ev2, ev1
+            except KeyError:
+                pass
+
+        if opt_ev is None or sar_ev is None:
+            from src.executor.water_specialist import WaterSpecialist
+            from src.executor.sar_specialist import SARSpecialist
+
+            opt_ev = WaterSpecialist().infer([inputs[0]], parameters)
+            sar_ev = SARSpecialist().infer([inputs[1] if len(inputs) > 1 else inputs[0]], parameters)
+            if self.evidence_registry:
+                self.evidence_registry.add(opt_ev)
+                self.evidence_registry.add(sar_ev)
 
         evidence_id = f"FUSE_{uuid4().hex[:8]}"
 

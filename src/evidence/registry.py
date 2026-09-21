@@ -11,11 +11,13 @@ class EvidenceRegistry:
         """Add evidence to the registry."""
 
         if evidence.evidence_id in self._evidence:
-            raise ValueError(
-                f"Evidence already exists: {evidence.evidence_id}"
-            )
+            return  # Idempotent add if already registered
 
         self._evidence[evidence.evidence_id] = evidence
+
+    def register(self, evidence: Evidence) -> None:
+        """Alias for add()."""
+        self.add(evidence)
 
     def get(self, evidence_id: str) -> Evidence:
         """Retrieve evidence by ID."""

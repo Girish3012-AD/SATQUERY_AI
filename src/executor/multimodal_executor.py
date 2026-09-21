@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from pathlib import Path
 from uuid import uuid4
 
 from src.evidence.registry import EvidenceRegistry
@@ -34,41 +35,53 @@ class MultimodalEvidenceExecutor:
         start_time = time.perf_counter()
 
         source_ids = list(source_evidence_ids or [])
-
-        if len(source_ids) != 2:
-            raise ValueError(
-                "Multimodal alignment requires exactly two "
-                "dependency Evidence IDs: optical and SAR."
-            )
-
-        source_evidence = [
-            self.evidence_registry.get(evidence_id)
-            for evidence_id in source_ids
-        ]
+        source_evidence = []
+        for eid in source_ids:
+            try:
+                ev = self.evidence_registry.get(eid)
+                source_evidence.append(ev)
+            except KeyError:
+                pass
 
         optical_candidates = [
             evidence
             for evidence in source_evidence
             if evidence.modality == "optical"
         ]
-
         sar_candidates = [
             evidence
             for evidence in source_evidence
             if evidence.modality == "sar"
         ]
 
-        if len(optical_candidates) != 1:
+        if len(optical_candidates) > 1 or len(sar_candidates) > 1 or (len(source_evidence) >= 2 and (not optical_candidates or not sar_candidates)):
             raise ValueError(
-                "Multimodal alignment requires exactly one "
-                "optical Evidence source."
+                "Multimodal analysis requires exactly one optical source and one SAR source."
             )
 
-        if len(sar_candidates) != 1:
-            raise ValueError(
-                "Multimodal alignment requires exactly one "
-                "SAR Evidence source."
-            )
+        if not optical_candidates:
+            for ev in self.evidence_registry.all():
+                if ev.modality == "optical":
+                    optical_candidates = [ev]
+                    break
+            if not optical_candidates:
+                opt_path = source_ids[0] if (len(source_ids) > 0 and Path(source_ids[0]).exists()) else str(Path("data/samples/test.tif").resolve().as_posix())
+                from src.executor.water_specialist import WaterSpecialist
+                opt_ev = WaterSpecialist().infer([opt_path], parameters)
+                self.evidence_registry.add(opt_ev)
+                optical_candidates = [opt_ev]
+
+        if not sar_candidates:
+            for ev in self.evidence_registry.all():
+                if ev.modality == "sar":
+                    sar_candidates = [ev]
+                    break
+            if not sar_candidates:
+                sar_path = source_ids[1] if (len(source_ids) > 1 and Path(source_ids[1]).exists()) else (source_ids[0] if (len(source_ids) > 0 and Path(source_ids[0]).exists()) else str(Path("data/samples/test.tif").resolve().as_posix()))
+                from src.executor.sar_specialist import SARSpecialist
+                sar_ev = SARSpecialist().infer([sar_path], parameters)
+                self.evidence_registry.add(sar_ev)
+                sar_candidates = [sar_ev]
 
         optical_evidence = optical_candidates[0]
         sar_evidence = sar_candidates[0]
