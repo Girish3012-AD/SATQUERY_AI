@@ -133,6 +133,8 @@ def resolve_request_inputs(request: QueryRequest) -> tuple[str, list[str]]:
         query = DEMO_QUERY_TEXT_REGISTRY[request.demo_preset]
 
     if request.inputs:
+        if len(request.inputs) == 1:
+            return query, [request.inputs[0], request.inputs[0]]
         return query, request.inputs.copy()
 
     # Keyword / fuzzy matching if exact query string match was not found
