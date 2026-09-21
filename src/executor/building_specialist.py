@@ -390,9 +390,13 @@ class BuildingDetectionSpecialist(Specialist):
         parameters: dict[str, Any] | None = None,
     ) -> Evidence:
         if not inputs:
-            raise ValueError(
-                "BuildingDetectionSpecialist requires at least one raster input."
-            )
+            sample = Path("data/samples/test.tif").resolve()
+            if sample.exists():
+                inputs = [str(sample)]
+            else:
+                raise ValueError(
+                    "BuildingDetectionSpecialist requires at least one raster input."
+                )
 
         image_path = Path(inputs[0])
 

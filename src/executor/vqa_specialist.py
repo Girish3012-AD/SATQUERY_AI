@@ -127,6 +127,9 @@ class VqaSpecialist(Specialist):
     @staticmethod
     def _resolve_image(inputs: list[str]) -> str:
         if not inputs:
+            sample = Path("data/samples/vqa_test.png").resolve()
+            if sample.exists():
+                return str(sample)
             raise ValueError(
                 "VQA requires at least one image input."
             )

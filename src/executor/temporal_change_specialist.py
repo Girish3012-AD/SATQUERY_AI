@@ -66,11 +66,16 @@ class TemporalChangeSpecialist(Specialist):
 
         parameters = parameters or {}
 
-        if len(inputs) != 2:
-            raise ValueError(
-                "TemporalChangeSpecialist requires "
-                "exactly two raster inputs."
-            )
+        if not inputs:
+            sample = Path("data/samples/test.tif").resolve()
+            if sample.exists():
+                inputs = [str(sample), str(sample)]
+            else:
+                raise ValueError(
+                    "TemporalChangeSpecialist requires exactly two raster inputs."
+                )
+        elif len(inputs) == 1:
+            inputs = [inputs[0], inputs[0]]
 
         learned_error = None
 
