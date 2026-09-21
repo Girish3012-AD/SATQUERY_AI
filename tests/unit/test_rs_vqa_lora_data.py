@@ -1,4 +1,5 @@
 from pathlib import Path
+import pytest
 
 from src.training.rs_vqa_lora_data import (
     DEFAULT_DATASET_ROOT,
@@ -6,6 +7,11 @@ from src.training.rs_vqa_lora_data import (
     build_qwen_messages,
     build_qwen_prompt_messages,
     load_image,
+)
+
+pytestmark = pytest.mark.skipif(
+    not (DEFAULT_DATASET_ROOT / "train.jsonl").exists(),
+    reason=f"DATASET_REQUIRED: RS-VQA dataset not found at {DEFAULT_DATASET_ROOT / 'train.jsonl'}",
 )
 
 

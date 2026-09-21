@@ -45,6 +45,12 @@ class FakeChangeSpecialist(Specialist):
             model="FakeChangeSpecialist",
             sensor="test-sensor",
             modality="optical",
+            t1_timestamp="2024-01-01T00:00:00Z",
+            t2_timestamp="2024-06-01T00:00:00Z",
+            geometry={
+                "type": "Polygon",
+                "coordinates": [[[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [0.0, 0.0]]],
+            },
             result={
                 "changed": True,
                 "changed_pixels": 100,

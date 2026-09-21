@@ -1,0 +1,98 @@
+{
+  "system": "SATQuery AI",
+  "problem_statement": "SIH 26167",
+  "validation_timestamp": "2026-09-22T03:26:30Z",
+  "main_commit": "44ac438",
+  "architecture_status": "FROZEN_CANONICAL",
+  "canonical_path": [
+    "Browser SPA",
+    "FastAPI (api_server.py)",
+    "SATQueryOrchestrator",
+    "TaskController",
+    "EvidencePlanner",
+    "Specialists",
+    "GIS Reasoning / Grounding",
+    "EvidenceRegistry",
+    "GeoReasonVerifier",
+    "Final Response / Interactive UI"
+  ],
+  "test_suite_summary": {
+    "total_collected": 293,
+    "passed": 269,
+    "failed": 0,
+    "skipped": 24,
+    "dataset_required": 24,
+    "pass_rate_percentage": 100.0
+  },
+  "workflows_validated": [
+    {
+      "name": "Workflow A — Single-Image VQA",
+      "query": "Describe the land-cover and major objects visible in this image.",
+      "task_type": "vqa",
+      "specialist": "VqaSpecialist",
+      "model": "Qwen2-VL-2B-Instruct + LoRA",
+      "status": "VALIDATED"
+    },
+    {
+      "name": "Workflow B — Water Spatial Grounding",
+      "query": "Highlight the water body referred to in the image.",
+      "task_type": "specialized_analysis",
+      "specialist": "WaterSpecialist",
+      "method": "NDWI (B03, B08)",
+      "status": "VALIDATED"
+    },
+    {
+      "name": "Workflow C — Bi-Temporal Change Detection",
+      "query": "What changed between these two dates, and where did the change occur?",
+      "task_type": "temporal_analysis",
+      "specialist": "TemporalChangeSpecialist",
+      "method": "Bialgebraic Spectral Rationing",
+      "status": "VALIDATED"
+    },
+    {
+      "name": "Workflow D — Hero Multi-Step Geographic Reasoning",
+      "query": "Find newly constructed buildings within 500 m of flooded areas.",
+      "task_type": "spatial_analysis",
+      "specialists": ["WaterSpecialist", "BuildingDetectionSpecialist", "TemporalChangeSpecialist"],
+      "spatial_ops": ["500m Buffer", "Spatial Intersection"],
+      "status": "VALIDATED"
+    }
+  ],
+  "security_and_upload_validation": {
+    "sanitization": "regex + uuid prefix",
+    "max_file_size_bytes": 52428800,
+    "allowed_extensions": [".tif", ".tiff", ".png", ".jpg", ".jpeg"],
+    "content_verification": "rasterio + PIL Image verify",
+    "rejected_test_cases": [
+      "empty_file",
+      "corrupted_bytes",
+      "unsupported_extension",
+      "oversized_stream",
+      "path_traversal"
+    ],
+    "status": "PASSED"
+  },
+  "scientific_claim_audit": {
+    "ndwi_claim": "potential_water_candidate / NOT confirmed flooding",
+    "change_claim": "spectral_change_candidate / NOT confirmed construction",
+    "confidence_claim": "uncalibrated_raw_score / NOT posterior probability",
+    "proximity_claim": "spatial_association / NOT causal relationship",
+    "status": "AUDITED_AND_COMPLIANT"
+  },
+  "performance": {
+    "device": "CPU (Intel/AMD x86_64)",
+    "upload_time_ms": 35,
+    "stac_discovery_ms": 480,
+    "raster_extraction_ms": 190,
+    "vqa_model_load_s": 4.8,
+    "vqa_inference_s": 115.2,
+    "gis_buffer_intersection_ms": 45,
+    "verification_ms": 8
+  },
+  "demo_readiness": {
+    "ui_panels": 10,
+    "live_mode": "ACTIVE",
+    "replay_mode": "ACTIVE",
+    "status": "JUDGE_READY"
+  }
+}

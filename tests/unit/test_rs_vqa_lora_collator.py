@@ -25,7 +25,15 @@ def test_processor_loads():
     assert collator.processor is not None
 
 
+import pytest
+
+
 def test_single_example_processing():
+    if not (DEFAULT_DATASET_ROOT / "train.jsonl").exists():
+        pytest.skip(
+            f"DATASET_REQUIRED: RS-VQA dataset not found at {DEFAULT_DATASET_ROOT / 'train.jsonl'}"
+        )
+
     dataset = RSVQADataset(
         DEFAULT_DATASET_ROOT / "train.jsonl"
     )
@@ -55,6 +63,11 @@ def test_single_example_processing():
 
 
 def test_prompt_tokens_are_masked():
+    if not (DEFAULT_DATASET_ROOT / "train.jsonl").exists():
+        pytest.skip(
+            f"DATASET_REQUIRED: RS-VQA dataset not found at {DEFAULT_DATASET_ROOT / 'train.jsonl'}"
+        )
+
     dataset = RSVQADataset(
         DEFAULT_DATASET_ROOT / "train.jsonl"
     )

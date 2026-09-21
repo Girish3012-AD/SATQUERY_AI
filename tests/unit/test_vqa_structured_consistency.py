@@ -1,10 +1,16 @@
 import json
 import re
 from pathlib import Path
+import pytest
 
 
 RESULTS = Path(
     "outputs/vqa_evidence_conditioned_acceptance_2AY-Z-K.json"
+)
+
+pytestmark = pytest.mark.skipif(
+    not RESULTS.exists(),
+    reason=f"DATASET_REQUIRED: VQA benchmark outputs not found at {RESULTS}",
 )
 
 

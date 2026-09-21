@@ -1,13 +1,20 @@
-from pathlib import Path
 import json
+from pathlib import Path
+import pytest
 
 from src.training.build_rs_vqa_dataset import (
+    DEFAULT_MANIFEST,
     DEFAULT_OUTPUT,
     build_dataset,
 )
 
 
 def test_build_rs_vqa_dataset(tmp_path):
+    if not DEFAULT_MANIFEST.exists():
+        pytest.skip(
+            f"DATASET_REQUIRED: SpaceNet4 patch manifest not found at {DEFAULT_MANIFEST}"
+        )
+
     output = tmp_path / "rs_vqa"
 
     metadata = build_dataset(
