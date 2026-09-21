@@ -20,10 +20,7 @@ from src.schemas import Evidence
 from .specialist import Specialist
 
 
-DEFAULT_MODEL_PATH = os.path.expanduser(
-    "~/.cache/huggingface/hub/models--Qwen--Qwen2-VL-2B-Instruct/"
-    "snapshots/895c3a49bc3fa70a340399125c650a463535e71c"
-)
+DEFAULT_MODEL_PATH = "Qwen/Qwen2-VL-2B-Instruct"
 
 DEFAULT_ADAPTER_PATH = os.path.abspath(
     "outputs/checkpoints/"
@@ -61,11 +58,6 @@ class VqaSpecialist(Specialist):
             and self._processor is not None
         ):
             return
-
-        if not Path(self.model_path).exists():
-            raise FileNotFoundError(
-                f"VQA model path does not exist: {self.model_path}"
-            )
 
         self._processor = AutoProcessor.from_pretrained(
             self.model_path
