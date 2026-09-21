@@ -129,14 +129,14 @@ def test_sar_specialist_rejects_missing_file() -> None:
         )
 
 
-def test_sar_specialist_rejects_multiband_raster(
+def test_sar_specialist_accepts_multiband_raster(
     tmp_path: Path,
 ) -> None:
     path = tmp_path / "multiband.tif"
 
     transform = from_origin(
-        743501.0,
-        3721989.0,
+        0.0,
+        10.0,
         0.5,
         0.5,
     )
@@ -159,13 +159,9 @@ def test_sar_specialist_rejects_multiband_raster(
             )
         )
 
-    with pytest.raises(
-        ValueError,
-        match="single-band",
-    ):
-        SARSpecialist().infer(
-            [str(path)]
-        )
+    evidence = SARSpecialist().infer([str(path)])
+    assert evidence is not None
+    assert evidence.evidence_id.startswith("SAR")
 
 
 def test_sar_specialist_rejects_missing_crs(

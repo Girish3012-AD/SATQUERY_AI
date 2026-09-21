@@ -45,3 +45,17 @@ These files power the **Audit Replay** secondary mode (`📂 AUDIT REPLAY`) in t
 - **LoRA Adapter Checkpoint**: `outputs/checkpoints/qwen2vl_rs_vqa_evidence_grounded_dev`
 - **Building Detection UNet**: `outputs/checkpoints/building_unet_10epoch_dev.pt`
 - **Execution Traces**: `outputs/traces/trace_*.json`
+
+---
+
+## ⚡ 5. One-Click SIH Demo Auto-Resolved Input Mapping
+
+When judges click any of the official preset buttons in the UI, the backend automatically resolves the following real satellite imagery paths from `DEMO_INPUT_REGISTRY` without manual file upload:
+
+| Preset Key | Preset UI Button | Target Satellite Input | Specialist Execution Path |
+|---|---|---|---|
+| `vqa` | `▶ Run VQA Demo` | `data/samples/vqa_test.png` | `VqaSpecialist` (`Qwen2-VL-2B-Instruct` + LoRA) |
+| `grounding` | `▶ Run Water Grounding Demo` | `data/samples/test.tif` | `WaterSpecialist` (NDWI Spectral Ratioing) |
+| `change` | `▶ Run Change Detection Demo` | `data/samples/test.tif` (T1, T2) | `TemporalChangeSpecialist` (Bialgebraic Rationing) |
+| `multimodal` | `▶ Run Optical + SAR Demo` | `data/samples/test.tif` (Optical, SAR) | `MultimodalFloodSpecialist` + `SARSpecialist` |
+| `hero` | `★ Run Hero Geographic Reasoning` | `data/samples/test.tif` (Dual Obs) | Full Hero Pipeline (6 Evidence-Producing Steps) |

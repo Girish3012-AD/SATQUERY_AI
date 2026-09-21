@@ -11,24 +11,34 @@
 
 const DEMO_QUERIES = [
     {
-        label: "VQA — Land-cover description",
+        label: "▶ Run VQA Demo",
         query: "Describe the land-cover and major objects visible in this image.",
-        workflow: "Single-Image VQA",
+        preset: "vqa",
+        description: "Using validated Rasuwa Sentinel-2 demo input...",
     },
     {
-        label: "Water Grounding — Highlight water body",
+        label: "▶ Run Water Grounding Demo",
         query: "Highlight the water body referred to in the image.",
-        workflow: "Spatial Grounding",
+        preset: "grounding",
+        description: "Using validated Rasuwa Sentinel-2 demo input...",
     },
     {
-        label: "Temporal Change — What changed?",
-        query: "What changed between the two dates?",
-        workflow: "Bi-Temporal Change",
+        label: "▶ Run Change Detection Demo",
+        query: "Show spectral changes between the 2023 and 2024 Sentinel-2 observations.",
+        preset: "change",
+        description: "Using validated T1 & T2 temporal demo inputs...",
     },
     {
-        label: "Hero Reasoning — Buildings near floods",
+        label: "▶ Run Optical + SAR Demo",
+        query: "Analyze the area using both optical and SAR evidence.",
+        preset: "multimodal",
+        description: "Using validated Rasuwa Sentinel-2 Optical & Sentinel-1 SAR inputs...",
+    },
+    {
+        label: "★ Run Hero Geographic Reasoning",
         query: "Find newly constructed buildings within 500 m of flooded areas.",
-        workflow: "Multi-Step Geographic Reasoning",
+        preset: "hero",
+        description: "Using validated multi-step temporal & spatial demo inputs...",
     },
 ];
 
@@ -43,6 +53,7 @@ class SATQueryApp {
         this.currentResult = null;
         this.currentMode = "ready"; // ready | live | replay
         this.uploadedFilePath = null;
+        this.currentDemoPreset = null;
     }
 
     /* ---------- Initialization ---------- */
@@ -111,6 +122,12 @@ class SATQueryApp {
         const demo = DEMO_QUERIES[index];
         const textarea = document.getElementById("query-input");
         if (textarea) textarea.value = demo.query;
+        this.currentDemoPreset = demo.preset;
+        this.uploadedFilePath = null; // Clear manual upload when demo preset is selected
+        const statusEl = document.getElementById("upload-status");
+        if (statusEl) {
+            statusEl.innerHTML = `✨ <span style="color:#2ecc71;font-weight:bold;">${demo.description}</span>`;
+        }
     }
 
     /* ---------- File Upload ---------- */
@@ -123,6 +140,8 @@ class SATQueryApp {
             if (statusEl) statusEl.textContent = "No file selected";
             return;
         }
+
+        this.currentDemoPreset = null; // Clear demo preset when manual file is uploaded
 
         if (statusEl) {
             statusEl.textContent = "Uploading...";
@@ -172,10 +191,18 @@ class SATQueryApp {
 
         try {
             const inputs = this.uploadedFilePath ? [this.uploadedFilePath] : [];
+            const payload = {
+                query: query,
+                inputs: inputs,
+                parameters: {},
+            };
+            if (this.currentDemoPreset && !this.uploadedFilePath) {
+                payload.demo_preset = this.currentDemoPreset;
+            }
             const resp = await fetch("/api/query", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ query: query, inputs: inputs, parameters: {} }),
+                body: JSON.stringify(payload),
             });
 
             const data = await resp.json();

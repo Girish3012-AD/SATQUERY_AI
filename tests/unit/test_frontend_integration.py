@@ -349,3 +349,44 @@ def test_upload_endpoint_corrupted_image(client):
     )
     assert resp.status_code == 400
     assert "Corrupted file" in resp.json()["detail"]
+
+
+# ---------------------------------------------------------------
+# Test 14: Demo Preset Auto-Resolution Integration
+# ---------------------------------------------------------------
+
+def test_demo_preset_auto_resolution_all_types(client):
+    """Verify all 5 demo presets resolve real inputs and execute LIVE."""
+    presets = ["vqa", "grounding", "change", "multimodal", "hero"]
+    for preset in presets:
+        resp = client.post(
+            "/api/query",
+            json={
+                "query": "",
+                "inputs": [],
+                "parameters": {},
+                "demo_preset": preset,
+            },
+        )
+        assert resp.status_code == 200, f"Preset {preset} failed with status {resp.status_code}"
+        data = resp.json()
+        assert data["mode"] == "live"
+        assert data["query"] != ""  # Auto-populated query text
+        assert "execution_time_seconds" in data
+
+
+def test_freeform_query_without_inputs_does_not_inject_demo_inputs(client):
+    """Verify custom free-form queries do NOT receive automatic demo inputs."""
+    resp = client.post(
+        "/api/query",
+        json={
+            "query": "Custom arbitrary query about some unknown location.",
+            "inputs": [],
+            "parameters": {},
+        },
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["mode"] == "live"
+    # Specialist fails gracefully for missing inputs without crashing
+    assert "execution_time_seconds" in data

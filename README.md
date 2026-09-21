@@ -77,6 +77,16 @@ The production execution path is strictly canonical. All frontend user actions p
    - *Example Query*: `"Find newly constructed buildings within 500 m of flooded areas."`
    - *Pipeline*: Deconstructs query $\rightarrow$ Water Candidate Detection $\rightarrow$ Building Candidate Detection $\rightarrow$ Temporal Change Analysis $\rightarrow$ 500m GIS Spatial Buffer $\rightarrow$ Polygon Intersection $\rightarrow$ Formal Claim Verification.
 
+### ⚡ One-Click Self-Contained SIH Demo Buttons
+For SIH 2026 judging convenience, 5 preset demo buttons are built directly into the UI header:
+- `▶ Run VQA Demo`
+- `▶ Run Water Grounding Demo`
+- `▶ Run Change Detection Demo`
+- `▶ Run Optical + SAR Demo`
+- `★ Run Hero Geographic Reasoning`
+
+Clicking any preset automatically resolves the official validated Sentinel satellite rasters (`data/samples/vqa_test.png`, `data/samples/test.tif`) on the backend, executing the full live pipeline through `SATQueryOrchestrator` without requiring manual file uploads by judges. Manual file uploads remain fully active for custom queries.
+
 ---
 
 ## 📡 4. Real Satellite Data & AI/ML Models

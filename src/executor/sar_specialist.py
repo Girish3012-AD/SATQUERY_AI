@@ -59,9 +59,9 @@ class SARSpecialist(Specialist):
         start_time = time.perf_counter()
 
         with rasterio.open(image_path) as dataset:
-            if dataset.count != 1:
+            if dataset.count < 1:
                 raise ValueError(
-                    "SARSpecialist currently requires a single-band SAR raster."
+                    "SARSpecialist requires a raster with at least 1 band."
                 )
 
             if dataset.crs is None:

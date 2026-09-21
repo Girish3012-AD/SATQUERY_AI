@@ -29,8 +29,8 @@ class MultimodalFloodSpecialist(Specialist):
     CAPABILITY = "multimodal_flood_analysis"
     MODEL_NAME = "OpticalSAR_Deterministic_Fusion"
 
-    def __init__(self, evidence_registry: EvidenceRegistry) -> None:
-        self.evidence_registry = evidence_registry
+    def __init__(self, evidence_registry: EvidenceRegistry | None = None) -> None:
+        self.evidence_registry = evidence_registry or EvidenceRegistry()
         # Planetary Computer Sentinel-1 RTC is in linear power scale.
         # -15 dB is approximately 0.0316 in linear power.
         self.sar_water_threshold = 0.0316

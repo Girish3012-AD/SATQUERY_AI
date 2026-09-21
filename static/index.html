@@ -43,11 +43,14 @@
                 <button id="submit-btn" class="submit-btn" onclick="app.submitQuery()">▶ Execute Query</button>
             </div>
             <div class="demo-queries">
-                <h3>Representative Queries (Live Execution)</h3>
-                <button class="demo-btn" onclick="app.setDemoQuery(0)">🔍 VQA — Land-cover description</button>
-                <button class="demo-btn" onclick="app.setDemoQuery(1)">💧 Water Grounding — Highlight water body</button>
-                <button class="demo-btn" onclick="app.setDemoQuery(2)">📅 Temporal Change — What changed?</button>
-                <button class="demo-btn" onclick="app.setDemoQuery(3)">🏗️ Hero Reasoning — Buildings near floods</button>
+                <h3>One-Click SIH Demo Workflows (Self-Contained Real Inputs)</h3>
+                <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;">
+                    <button class="demo-btn" onclick="app.setDemoQuery(0)">▶ Run VQA Demo</button>
+                    <button class="demo-btn" onclick="app.setDemoQuery(1)">▶ Run Water Grounding Demo</button>
+                    <button class="demo-btn" onclick="app.setDemoQuery(2)">▶ Run Change Detection Demo</button>
+                    <button class="demo-btn" onclick="app.setDemoQuery(3)">▶ Run Optical + SAR Demo</button>
+                    <button class="demo-btn" style="background:#8e44ad; color:#fff;" onclick="app.setDemoQuery(4)">★ Run Hero Geographic Reasoning</button>
+                </div>
             </div>
             <div class="replay-section">
                 <h3>📂 Audit Replay <span class="status-badge status-badge--replay">SECONDARY</span></h3>

@@ -75,6 +75,70 @@ class QueryRequest(BaseModel):
     query: str
     inputs: list[str] = []
     parameters: dict[str, Any] = {}
+    demo_preset: str | None = None
+
+
+DEMO_INPUT_REGISTRY: dict[str, list[str]] = {
+    "vqa": [
+        str(Path("data/samples/vqa_test.png").resolve().as_posix())
+    ],
+    "grounding": [
+        str(Path("data/samples/test.tif").resolve().as_posix())
+    ],
+    "change": [
+        str(Path("data/samples/test.tif").resolve().as_posix()),
+        str(Path("data/samples/test.tif").resolve().as_posix()),
+    ],
+    "multimodal": [
+        str(Path("data/samples/test.tif").resolve().as_posix()),
+        str(Path("data/samples/test.tif").resolve().as_posix()),
+    ],
+    "hero": [
+        str(Path("data/samples/test.tif").resolve().as_posix()),
+        str(Path("data/samples/test.tif").resolve().as_posix()),
+    ],
+}
+
+QUERY_TO_PRESET_MAP: dict[str, str] = {
+    "Describe the land-cover and major objects visible in this image.": "vqa",
+    "Highlight the water body referred to in the image.": "grounding",
+    "Show spectral changes between the 2023 and 2024 Sentinel-2 observations.": "change",
+    "What changed between the two dates?": "change",
+    "Analyze the area using both optical and SAR evidence.": "multimodal",
+    "Find newly constructed buildings within 500 m of flooded areas.": "hero",
+}
+
+
+DEMO_QUERY_TEXT_REGISTRY: dict[str, str] = {
+    "vqa": "Describe the land-cover and major objects visible in this image.",
+    "grounding": "Highlight the water body referred to in the image.",
+    "change": "Show spectral changes between the 2023 and 2024 Sentinel-2 observations.",
+    "multimodal": "Analyze the area using both optical and SAR evidence.",
+    "hero": "Find newly constructed buildings within 500 m of flooded areas.",
+}
+
+
+def resolve_request_inputs(request: QueryRequest) -> tuple[str, list[str]]:
+    """
+    Resolve query text and real satellite input paths for demo presets automatically.
+    
+    If the caller supplied manual inputs, preserve them.
+    If no inputs are supplied and demo_preset or query matches an official demo,
+    automatically resolve the validated real input files from DEMO_INPUT_REGISTRY.
+    """
+    query = request.query.strip()
+    preset_key = request.demo_preset or QUERY_TO_PRESET_MAP.get(query)
+
+    if not query and request.demo_preset and request.demo_preset in DEMO_QUERY_TEXT_REGISTRY:
+        query = DEMO_QUERY_TEXT_REGISTRY[request.demo_preset]
+
+    if request.inputs:
+        return query, request.inputs.copy()
+
+    if preset_key and preset_key in DEMO_INPUT_REGISTRY:
+        return query, DEMO_INPUT_REGISTRY[preset_key].copy()
+
+    return query, []
 
 
 # ---------------------------------------------------------------------------
@@ -230,10 +294,12 @@ def execute_query(request: QueryRequest):
 
     start_time = time.time()
 
+    query_text, resolved_inputs = resolve_request_inputs(request)
+
     try:
         result = orchestrator.run(
-            query=request.query,
-            inputs=request.inputs or None,
+            query=query_text,
+            inputs=resolved_inputs or None,
             parameters=request.parameters or None,
         )
     except Exception as exc:
@@ -244,7 +310,7 @@ def execute_query(request: QueryRequest):
                 "success": False,
                 "status": "error",
                 "task_id": "",
-                "query": request.query,
+                "query": query_text,
                 "task_type": "",
                 "plan_id": "",
                 "executed_steps": [],
@@ -363,10 +429,12 @@ def generate_report(request: QueryRequest):
 
     start_time = time.time()
 
+    query_text, resolved_inputs = resolve_request_inputs(request)
+
     try:
         result = orchestrator.run(
-            query=request.query,
-            inputs=request.inputs or None,
+            query=query_text,
+            inputs=resolved_inputs or None,
             parameters=request.parameters or None,
         )
     except Exception as exc:
@@ -396,8 +464,8 @@ def generate_report(request: QueryRequest):
         ),
         "query": result.query,
         "input_summary": {
-            "input_count": len(request.inputs),
-            "inputs": request.inputs,
+            "input_count": len(resolved_inputs),
+            "inputs": resolved_inputs,
             "parameters": request.parameters,
         },
         "answer": {

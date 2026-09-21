@@ -7,13 +7,17 @@ from src.controller import TaskController
 from src.data.input_metadata import InputMetadataResolver
 from src.evidence import EvidenceRegistry
 from src.executor import ExecutionEngine, Specialist
+from src.executor.building_specialist import BuildingDetectionSpecialist
+from src.executor.change_specialist import ChangeSpecialist
 from src.executor.flood_specialist import FloodSpecialist
+from src.executor.multimodal_flood_specialist import MultimodalFloodSpecialist
 from src.executor.sar_specialist import SARSpecialist
 from src.executor.temporal_change_specialist import TemporalChangeSpecialist
 from src.executor.vqa_specialist import (
     DEFAULT_ADAPTER_PATH,
     VqaSpecialist,
 )
+from src.executor.water_specialist import WaterSpecialist
 from src.planner import EvidencePlan, EvidencePlanner
 from src.registry import ModelRegistry, ModelSpec
 from src.router import SensorAwareRouter
@@ -86,8 +90,8 @@ class SATQueryOrchestrator:
                 ModelSpec(
                     name=SARSpecialist.MODEL_NAME,
                     capability=SARSpecialist.CAPABILITY,
-                    task_types=["specialized_analysis"],
-                    modalities=["sar"],
+                    task_types=["specialized_analysis", "multimodal_analysis", "spatial_analysis", "temporal_analysis"],
+                    modalities=["sar", "optical", "None"],
                     status="AVAILABLE",
                     specialist_name="SARSpecialist",
                     metadata={
@@ -103,8 +107,8 @@ class SATQueryOrchestrator:
                 ModelSpec(
                     name=TemporalChangeSpecialist.MODEL_NAME,
                     capability=TemporalChangeSpecialist.CAPABILITY,
-                    task_types=["temporal_analysis"],
-                    modalities=["optical"],
+                    task_types=["temporal_analysis", "spatial_analysis", "specialized_analysis"],
+                    modalities=["optical", "sar", "None"],
                     status="AVAILABLE",
                     specialist_name="TemporalChangeSpecialist",
                     checkpoint="outputs/checkpoints/change_unet_dev.pt",
@@ -123,8 +127,8 @@ class SATQueryOrchestrator:
                 ModelSpec(
                     name=FloodSpecialist.MODEL_NAME,
                     capability=FloodSpecialist.CAPABILITY,
-                    task_types=["specialized_analysis"],
-                    modalities=["optical"],
+                    task_types=["specialized_analysis", "temporal_analysis", "spatial_analysis"],
+                    modalities=["optical", "sar", "None"],
                     status="AVAILABLE",
                     specialist_name="FloodSpecialist",
                     metadata={
@@ -158,6 +162,55 @@ class SATQueryOrchestrator:
                 )
             )
 
+            registry.register(
+                ModelSpec(
+                    name=WaterSpecialist.MODEL_NAME,
+                    capability=WaterSpecialist.CAPABILITY,
+                    task_types=["specialized_analysis", "spatial_analysis"],
+                    modalities=["optical"],
+                    status="AVAILABLE",
+                    specialist_name="WaterSpecialist",
+                    metadata={"sensor": "Sentinel-2", "analysis_type": "ndwi_grounding"},
+                )
+            )
+
+            registry.register(
+                ModelSpec(
+                    name="BuildingUNet_SpaceNet4_dev",
+                    capability=BuildingDetectionSpecialist.CAPABILITY,
+                    task_types=["spatial_analysis", "specialized_analysis", "temporal_analysis"],
+                    modalities=["optical"],
+                    status="AVAILABLE",
+                    specialist_name="BuildingDetectionSpecialist",
+                    checkpoint=BuildingDetectionSpecialist.DEFAULT_CHECKPOINT,
+                    metadata={"model_type": "BuildingUNet"},
+                )
+            )
+
+            registry.register(
+                ModelSpec(
+                    name="Bialgebraic_Change_Rationing",
+                    capability=ChangeSpecialist.CAPABILITY,
+                    task_types=["temporal_analysis", "spatial_analysis"],
+                    modalities=["optical"],
+                    status="AVAILABLE",
+                    specialist_name="ChangeSpecialist",
+                    metadata={"analysis_type": "bialgebraic_ratio"},
+                )
+            )
+
+            registry.register(
+                ModelSpec(
+                    name=MultimodalFloodSpecialist.MODEL_NAME,
+                    capability=MultimodalFloodSpecialist.CAPABILITY,
+                    task_types=["multimodal_analysis", "spatial_analysis", "specialized_analysis"],
+                    modalities=["optical", "sar"],
+                    status="AVAILABLE",
+                    specialist_name="MultimodalFloodSpecialist",
+                    metadata={"fusion_type": "optical_sar_evidence_overlay"},
+                )
+            )
+
         self.registry = registry
 
         # Only construct a router when a registry actually exists.
@@ -185,7 +238,11 @@ class SATQueryOrchestrator:
             # Custom callers can still inject their own specialists.
             self.register_specialist(SARSpecialist())
             self.register_specialist(TemporalChangeSpecialist())
+            self.register_specialist(ChangeSpecialist())
             self.register_specialist(FloodSpecialist())
+            self.register_specialist(WaterSpecialist())
+            self.register_specialist(BuildingDetectionSpecialist())
+            self.register_specialist(MultimodalFloodSpecialist())
             self.register_specialist(
                 VqaSpecialist(
                     adapter_path=DEFAULT_ADAPTER_PATH,
