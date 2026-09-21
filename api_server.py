@@ -152,9 +152,10 @@ def resolve_request_inputs(request: QueryRequest) -> tuple[str, list[str]]:
     if preset_key and preset_key in DEMO_INPUT_REGISTRY:
         return query, DEMO_INPUT_REGISTRY[preset_key].copy()
 
-    # Fallback to default sample dataset raster when no inputs are attached to a free-form query
-    fallback_sample = str(Path("data/samples/test.tif").resolve().as_posix())
-    return query, [fallback_sample, fallback_sample]
+    # Fallback to both PNG and GeoTIFF sample dataset rasters when no inputs are attached to a free-form query
+    vqa_sample = str(Path("data/samples/vqa_test.png").resolve().as_posix())
+    geo_sample = str(Path("data/samples/test.tif").resolve().as_posix())
+    return query, [vqa_sample, geo_sample]
 
 
 # ---------------------------------------------------------------------------
