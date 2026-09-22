@@ -14,31 +14,31 @@ const DEMO_QUERIES = [
         label: "▶ Run VQA Demo",
         query: "Describe the land-cover and major objects visible in this image.",
         preset: "vqa",
-        description: "Using validated Rasuwa Sentinel-2 demo input...",
+        description: "📷 Attached Input: data/samples/vqa_test.png (Optical Scene)",
     },
     {
         label: "▶ Run Water Grounding Demo",
         query: "Highlight the water body referred to in the image.",
         preset: "grounding",
-        description: "Using validated Rasuwa Sentinel-2 demo input...",
+        description: "📡 Attached Input: data/samples/test.tif (Sentinel-2 GeoTIFF)",
     },
     {
         label: "▶ Run Change Detection Demo",
         query: "Show spectral changes between the 2023 and 2024 Sentinel-2 observations.",
         preset: "change",
-        description: "Using validated T1 & T2 temporal demo inputs...",
+        description: "📡 Attached Inputs: T1 & T2 data/samples/test.tif Rasters",
     },
     {
         label: "▶ Run Optical + SAR Demo",
         query: "Analyze the area using both optical and SAR evidence.",
         preset: "multimodal",
-        description: "Using validated Rasuwa Sentinel-2 Optical & Sentinel-1 SAR inputs...",
+        description: "📡 Attached Inputs: Optical Sentinel-2 & C-Band SAR Rasters",
     },
     {
         label: "★ Run Hero Geographic Reasoning",
         query: "Find newly constructed buildings within 500 m of flooded areas.",
         preset: "hero",
-        description: "Using validated multi-step temporal & spatial demo inputs...",
+        description: "📡 Attached Inputs: Multi-Temporal Rasters & SpaceNet UNet Weights",
     },
 ];
 

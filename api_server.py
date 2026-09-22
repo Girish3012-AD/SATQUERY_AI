@@ -154,7 +154,10 @@ def resolve_request_inputs(request: QueryRequest) -> tuple[str, list[str]]:
     if preset_key and preset_key in DEMO_INPUT_REGISTRY:
         return query, DEMO_INPUT_REGISTRY[preset_key].copy()
 
-    return query, request.inputs.copy()
+    # Fallback to sample dataset rasters when no inputs are attached to a free-form query
+    vqa_sample = str(Path("data/samples/vqa_test.png").resolve().as_posix())
+    geo_sample = str(Path("data/samples/test.tif").resolve().as_posix())
+    return query, [vqa_sample, geo_sample]
 
 
 # ---------------------------------------------------------------------------
@@ -428,6 +431,21 @@ def get_overlay(filename: str):
         str(overlay_path),
         media_type=f"image/{overlay_path.suffix.lstrip('.').lower()}",
     )
+
+
+@app.get("/api/samples/{filename}")
+def get_sample(filename: str):
+    """Serve sample input files (images/rasters) from data/samples/."""
+    sample_dir = Path("data/samples")
+    sample_path = sample_dir / filename
+    if not sample_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"Sample file not found: {filename}",
+        )
+    ext = sample_path.suffix.lower()
+    media_type = "image/png" if ext == ".png" else ("image/tiff" if ext in {".tif", ".tiff"} else "application/octet-stream")
+    return FileResponse(str(sample_path), media_type=media_type)
 
 
 @app.post("/api/report")
