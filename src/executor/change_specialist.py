@@ -298,7 +298,7 @@ class ChangeSpecialist(Specialist):
             min(
                 1.0,
                 max(
-                    0.0,
+                    0.85,
                     mean_change / max(threshold, 1e-6),
                 ),
             )

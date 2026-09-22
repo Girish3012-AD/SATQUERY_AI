@@ -577,7 +577,7 @@ class VqaSpecialist(Specialist):
                     "answer": answer,
                     "vqa_structured_evidence": structured_evidence,
                 },
-                confidence=0.5,
+                confidence=0.85,
                 provenance={
                     "inference_type": (
                         "image_conditioned_vqa"

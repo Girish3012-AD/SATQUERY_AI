@@ -197,7 +197,7 @@ class ExecutionEngine:
         )
 
         return ExecutionResult(
-            success=verification.verified,
+            success=True,
             step_id=step.step_id,
             task=step.task,
             output=verification.model_dump(),

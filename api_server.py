@@ -380,7 +380,9 @@ def execute_query(request: QueryRequest):
         "messages": result.messages,
         "evidence": evidence_list,
         "execution_time_seconds": round(execution_time, 3),
-        "mode": "live",
+        "lifecycle_trace": getattr(result, "lifecycle_trace", []),
+        "pipeline_metrics": getattr(result, "pipeline_metrics", {}),
+        "mode": getattr(result, "mode", "live"),
     }
 
 

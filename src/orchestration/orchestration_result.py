@@ -25,6 +25,9 @@ class OrchestrationResult:
     selected_capabilities: dict[str, str] = field(default_factory=dict)
     selected_models: dict[str, str] = field(default_factory=dict)
     messages: list[str] = field(default_factory=list)
+    lifecycle_trace: list[dict[str, Any]] = field(default_factory=list)
+    pipeline_metrics: dict[str, Any] = field(default_factory=dict)
+    mode: str = "live"
 
     @property
     def status(self) -> str:

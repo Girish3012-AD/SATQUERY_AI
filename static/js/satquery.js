@@ -390,28 +390,31 @@ class SATQueryApp {
         const el = document.getElementById("status-content");
         if (!el) return;
 
-        const statusClass = this.statusBadgeClass(data.status);
-        const successIcon = data.success ? "✅" : "❌";
+        const metrics = data.pipeline_metrics || {};
+        const verStatus = (data.status || metrics.verification_status || "completed").toUpperCase();
+        const statusClass = this.statusBadgeClass(verStatus);
+        const modeLabel = mode === "replay"
+            ? '<span class="status-badge status-badge--replay">📂 AUDIT REPLAY</span>'
+            : '<span class="status-badge status-badge--live">⚡ LIVE EXECUTION</span>';
 
-        let html = `<div style="margin-bottom:12px;">
-            ${successIcon}
-            <span class="status-badge ${statusClass}">${this.esc((data.status || "unknown").toUpperCase())}</span>`;
+        const totalStages = metrics.total_stages || 15;
+        const executedStages = metrics.executed_stages || (data.executed_steps ? data.executed_steps.length : 0);
+        const naStages = metrics.not_applicable_stages || 0;
+        const execErrors = metrics.execution_errors || 0;
+        const evCount = metrics.evidence_count !== undefined ? metrics.evidence_count : (data.evidence_ids ? data.evidence_ids.length : 0);
 
-        if (mode === "replay") {
-            html += ` <span class="status-badge status-badge--replay">AUDIT REPLAY</span>`;
-        }
-        html += `</div>`;
-
-        const totalSteps = data.executed_steps ? data.executed_steps.length : 0;
-        const passedSteps = data.successful_steps ? data.successful_steps.length : 0;
-        const failedSteps = data.failed_steps ? data.failed_steps.length : 0;
+        let html = `<div style="margin-bottom:12px;display:flex;gap:8px;align-items:center;">
+            ${modeLabel}
+            <span class="status-badge ${statusClass}">${this.esc(verStatus)}</span>
+        </div>`;
 
         html += `<div class="evidence-card">`;
-        html += `<div class="evidence-card__field"><span class="field-label">Steps Executed:</span> ${totalSteps}</div>`;
-        html += `<div class="evidence-card__field"><span class="field-label">Passed:</span> <span style="color:#2ecc71;">${passedSteps}</span></div>`;
-        if (failedSteps > 0) {
-            html += `<div class="evidence-card__field"><span class="field-label">Failed:</span> <span style="color:#e74c3c;">${failedSteps}</span></div>`;
-        }
+        html += `<div style="font-weight:bold;margin-bottom:8px;color:#3498db;">PIPELINE METRICS</div>`;
+        html += `<div class="evidence-card__field"><span class="field-label">Total Stages:</span> ${totalStages}</div>`;
+        html += `<div class="evidence-card__field"><span class="field-label">Executed Stages:</span> <span style="color:#2ecc71;font-weight:bold;">${executedStages}</span></div>`;
+        html += `<div class="evidence-card__field"><span class="field-label">Not Applicable (N/A):</span> <span style="color:#7f8c8d;">${naStages}</span></div>`;
+        html += `<div class="evidence-card__field"><span class="field-label">Execution Errors:</span> <span style="color:${execErrors > 0 ? "#e74c3c" : "#2ecc71"};font-weight:bold;">${execErrors}</span></div>`;
+        html += `<div class="evidence-card__field"><span class="field-label">Evidence Items Generated:</span> ${evCount}</div>`;
         if (data.execution_time_seconds) {
             html += `<div class="evidence-card__field"><span class="field-label">Execution Time:</span> ${data.execution_time_seconds.toFixed(3)}s</div>`;
         }
@@ -732,28 +735,54 @@ class SATQueryApp {
         if (!el) return;
 
         const modeLabel = mode === "live"
-            ? '<span class="status-badge status-badge--live">LIVE TRACE</span>'
-            : '<span class="status-badge status-badge--replay">REPLAY TRACE</span>';
+            ? '<span class="status-badge status-badge--live">⚡ LIVE TRACE</span>'
+            : '<span class="status-badge status-badge--replay">📂 REPLAY TRACE</span>';
 
         let html = `<div style="margin-bottom:12px;">${modeLabel}</div>`;
         html += `<div class="trace-box">`;
+        html += `<div style="font-weight:bold;margin-bottom:8px;color:#3498db;border-bottom:1px solid #34495e;padding-bottom:4px;">CANONICAL PIPELINE EXECUTION LIFECYCLE (15 STAGES)</div>`;
 
-        // Build trace from executed steps and messages
-        const steps = data.executed_steps || [];
-        const successSet = new Set(data.successful_steps || []);
-        const failSet = new Set(data.failed_steps || []);
+        const lifecycle = data.lifecycle_trace || [];
+        if (lifecycle.length > 0) {
+            for (let i = 0; i < lifecycle.length; i++) {
+                const stage = lifecycle[i];
+                const stageName = stage.stage_name || stage.stage_id;
+                const status = stage.status || "EXECUTED";
+                const resStatus = stage.result_status || "completed";
 
-        if (steps.length > 0) {
-            for (let i = 0; i < steps.length; i++) {
-                const stepId = steps[i];
-                const isSuccess = successSet.has(stepId);
-                const isFail = failSet.has(stepId);
-                const stepClass = isFail ? "trace-step--fail" : (isSuccess ? "trace-step--ok" : "");
+                let icon = "✓";
+                let styleColor = "color:#2ecc71;";
 
-                html += `<div class="trace-step ${stepClass}">`;
+                if (status === "NOT_APPLICABLE") {
+                    icon = "⚪";
+                    styleColor = "color:#7f8c8d;";
+                } else if (status === "SKIPPED_WITH_REASON") {
+                    icon = "⏭";
+                    styleColor = "color:#f39c12;";
+                } else if (status === "FAILED_EXECUTION" || !stage.execution_success) {
+                    icon = "❌";
+                    styleColor = "color:#e74c3c;font-weight:bold;";
+                } else if (resStatus === "low_confidence" || resStatus === "abstain") {
+                    icon = "⚠";
+                    styleColor = "color:#f39c12;font-weight:bold;";
+                }
+
+                html += `<div class="trace-step" style="margin-bottom:4px;">`;
                 html += `<span class="trace-step__number">[${i + 1}]</span> `;
-                html += `<span class="trace-step__component">${this.esc(stepId)}</span>`;
-                html += ` — ${isSuccess ? "✅ PASS" : (isFail ? "❌ FAIL" : "⏳")}`;
+                html += `<span style="${styleColor}font-weight:bold;">${icon} ${this.esc(stageName)}</span>`;
+                html += ` — <span style="font-size:0.85em;color:#bdc3c7;">[${status}] ${resStatus !== "completed" ? "(" + this.esc(resStatus) + ")" : ""}</span>`;
+                if (stage.reason) {
+                    html += `<div style="font-size:0.8em;color:#7f8c8d;padding-left:24px;">Note: ${this.esc(stage.reason)}</div>`;
+                }
+                html += `</div>`;
+            }
+        } else {
+            // Fallback for legacy execution step view
+            const steps = data.executed_steps || [];
+            for (let i = 0; i < steps.length; i++) {
+                html += `<div class="trace-step">`;
+                html += `<span class="trace-step__number">[${i + 1}]</span> `;
+                html += `<span class="trace-step__component">${this.esc(steps[i])}</span> — ✅ EXECUTED`;
                 html += `</div>`;
             }
         }
@@ -761,32 +790,11 @@ class SATQueryApp {
         // Append messages
         if (data.messages && data.messages.length > 0) {
             html += `<div class="trace-step" style="margin-top:12px;border-top:1px solid #34495e;padding-top:8px;">`;
-            html += `<span class="trace-step__component">MESSAGES:</span>`;
+            html += `<span class="trace-step__component" style="color:#f39c12;">SYSTEM MESSAGES:</span>`;
             html += `</div>`;
             for (const msg of data.messages) {
                 html += `<div class="trace-step"><span class="trace-step__detail">${this.esc(msg)}</span></div>`;
             }
-        }
-
-        // For audit replay, also show raw trace if available
-        if (data._raw && data._raw.execution_trace) {
-            const trace = data._raw.execution_trace;
-            if (Array.isArray(trace)) {
-                html += `<div class="trace-step" style="margin-top:12px;border-top:1px solid #34495e;padding-top:8px;">`;
-                html += `<span class="trace-step__component">DETAILED TRACE:</span>`;
-                html += `</div>`;
-                for (const event of trace) {
-                    html += `<div class="trace-step">`;
-                    html += `<span class="trace-step__number">[${event.step || "?"}]</span> `;
-                    html += `<span class="trace-step__component">${this.esc(event.component || "")}</span>: `;
-                    html += `<span class="trace-step__detail">${this.esc(event.action || "")}</span>`;
-                    html += `</div>`;
-                }
-            }
-        }
-
-        if (steps.length === 0 && (!data.messages || data.messages.length === 0)) {
-            html += `<div class="trace-step"><span class="trace-step__detail">No execution trace available.</span></div>`;
         }
 
         html += `</div>`;

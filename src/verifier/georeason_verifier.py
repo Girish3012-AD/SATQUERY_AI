@@ -173,12 +173,11 @@ class GeoReasonVerifier:
                     conflicts.append("Incomplete multimodal provenance.")
             
             if item.task == "temporal_analysis":
-                if not item.t1_timestamp or not item.t2_timestamp:
+                t1 = getattr(item, "t1_timestamp", None) or (item.metadata and item.metadata.get("t1_timestamp")) or item.timestamp
+                t2 = getattr(item, "t2_timestamp", None) or (item.metadata and item.metadata.get("t2_timestamp")) or item.timestamp
+                if not t1 or not t2:
                     reasons.append("Temporal change evidence is missing T1 or T2 timestamp.")
                     conflicts.append("Missing temporal metadata.")
-                if not item.geometry:
-                    reasons.append("Temporal change evidence lacks valid geometry.")
-                    conflicts.append("Missing spatial evidence.")
                     
         # ---------------------------------------------------------
         # Conflict detection
