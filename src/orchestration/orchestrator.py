@@ -566,6 +566,9 @@ class SATQueryOrchestrator:
             OrchestrationResult,
         )
 
+        import time
+        start_time = time.time()
+
         inputs = list(inputs or [])
         parameters = dict(parameters or {})
 
