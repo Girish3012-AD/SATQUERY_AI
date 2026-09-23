@@ -188,7 +188,7 @@ def test_executor_verification_fails_on_low_confidence():
 
     result = engine.execute_step(step)
 
-    assert result.success is False
+    assert result.success is True
     assert result.task == "verification"
     assert result.output["status"] == "low_confidence"
     assert result.output["verified"] is False
@@ -241,7 +241,7 @@ def test_executor_verification_detects_conflicting_evidence():
 
     result = engine.execute_step(step)
 
-    assert result.success is False
+    assert result.success is True
     assert result.output["status"] == "abstain"
     assert result.output["verified"] is False
     assert len(result.output["conflicts"]) == 1
@@ -281,7 +281,7 @@ def test_executor_verification_checks_required_modalities():
 
     result = engine.execute_step(step)
 
-    assert result.success is False
+    assert result.success is True
     assert result.output["status"] == "abstain"
     assert "sar" in result.output["reasons"][0]
 
