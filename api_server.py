@@ -328,6 +328,10 @@ def execute_query(request: QueryRequest):
             content={
                 "success": False,
                 "status": "error",
+                # P1-2: Explicit independent status fields
+                "execution_status": "FAILED",
+                "verification_status": "not_evaluated",
+                "confidence_calibration": "uncalibrated",
                 "task_id": "",
                 "query": query_text,
                 "task_type": "",
@@ -363,9 +367,13 @@ def execute_query(request: QueryRequest):
                 {"evidence_id": eid, "error": "not_found"}
             )
 
-    return {
+    response = {
         "success": result.success,
         "status": result.status,
+        # P1-2: Explicit independent status fields
+        "execution_status": "COMPLETED" if result.success else "FAILED",
+        "verification_status": result.verification.get("status", "not_evaluated") if result.verification else "not_evaluated",
+        "confidence_calibration": "uncalibrated",
         "task_id": result.task_id,
         "query": result.query,
         "task_type": result.task_type,
@@ -384,6 +392,21 @@ def execute_query(request: QueryRequest):
         "pipeline_metrics": getattr(result, "pipeline_metrics", {}),
         "mode": getattr(result, "mode", "live"),
     }
+
+    # P1-3: Auto-persist audit artifact with lifecycle trace
+    try:
+        audit_dir = Path("outputs")
+        audit_dir.mkdir(parents=True, exist_ok=True)
+        audit_file = audit_dir / f"{result.task_id}_audit.json"
+        import json as _json
+        audit_file.write_text(
+            _json.dumps(response, indent=2, default=str),
+            encoding="utf-8",
+        )
+    except Exception:
+        pass  # Audit persistence is best-effort
+
+    return response
 
 
 @app.get("/api/evidence")
@@ -541,6 +564,13 @@ def generate_report(request: QueryRequest):
                 execution_time, 3
             ),
         },
+        # P1-3: Include lifecycle trace for auditable replay
+        "lifecycle_trace": getattr(
+            result, "lifecycle_trace", []
+        ),
+        "pipeline_metrics": getattr(
+            result, "pipeline_metrics", {}
+        ),
         "visual_artifacts": _list_overlay_files(),
         "provenance": {
             "system": "SATQuery AI",

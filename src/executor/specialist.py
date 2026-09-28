@@ -11,6 +11,10 @@ class Specialist(ABC):
     Concrete implementations must perform real inference and return
     normalized Evidence.
     """
+    
+    # Declarative requirement for the Input Binding router.
+    # E.g., {"modality": "optical", "count": 2, "temporal": "bi-temporal"}
+    REQUIRED_INPUT_PROFILE: dict[str, Any] | None = None
 
     @property
     @abstractmethod

@@ -42,12 +42,13 @@ class WaterSpecialist(Specialist):
 
     CAPABILITY = "water_detection"
     MODEL_NAME = "NDWI_Sentinel2_WaterGrounding"
+    REQUIRED_INPUT_PROFILE = {"modality": "optical"}
 
-    DEFAULT_GREEN_BAND = 1
+    DEFAULT_GREEN_BAND = 2
     DEFAULT_NIR_BAND = 4
 
-    GREEN_BAND_INDEX = 1
-    NIR_BAND_INDEX = 1
+    GREEN_BAND_INDEX = 2
+    NIR_BAND_INDEX = 4
 
     def __init__(
         self,
@@ -72,7 +73,10 @@ class WaterSpecialist(Specialist):
         with rasterio.open(path) as ds:
             if ds.crs is None:
                 raise ValueError(f"Raster has no CRS: {path}")
-            data = ds.read(band_index).astype(np.float32)
+            
+            actual_band = band_index if ds.count >= band_index else 1
+            data = ds.read(actual_band).astype(np.float32)
+            
             transform = ds.transform
             crs = ds.crs.to_string()
             res = (abs(float(ds.transform.a)), abs(float(ds.transform.e)))
@@ -88,13 +92,10 @@ class WaterSpecialist(Specialist):
         with rasterio.open(path) as ds:
             if ds.crs is None:
                 raise ValueError(f"Raster has no CRS: {path}")
-            if ds.count < max(green_band, nir_band):
-                raise ValueError(
-                    f"Raster has {ds.count} bands; "
-                    f"requested green={green_band}, nir={nir_band}."
-                )
-            green = ds.read(green_band).astype(np.float32)
-            nir = ds.read(nir_band).astype(np.float32)
+            actual_green = green_band if ds.count >= green_band else 1
+            actual_nir = nir_band if ds.count >= nir_band else 1
+            green = ds.read(actual_green).astype(np.float32)
+            nir = ds.read(actual_nir).astype(np.float32)
             transform = ds.transform
             crs = ds.crs.to_string()
             res = (abs(float(ds.transform.a)), abs(float(ds.transform.e)))

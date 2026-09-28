@@ -39,6 +39,10 @@ class BuildingDetectionSpecialist(Specialist):
 
     CAPABILITY = "building_detection"
 
+    REQUIRED_INPUT_PROFILE = {
+        "modality": "optical"
+    }
+
     DEFAULT_CHECKPOINT = (
         "outputs/checkpoints/building_unet_10epoch_dev.pt"
     )

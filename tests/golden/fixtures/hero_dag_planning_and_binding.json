@@ -1,0 +1,136 @@
+{
+  "success": false,
+  "query": "Find newly constructed buildings within 500 m of flooded areas.",
+  "task_type": "temporal_analysis",
+  "selected_capabilities": {
+    "temporal_analysis": "TemporalChangeSpecialist",
+    "flood_detection": "FloodSpecialist",
+    "building_detection": "BuildingDetectionSpecialist"
+  },
+  "execution_status": null,
+  "verification_status": null,
+  "pipeline_metrics": {
+    "total_stages": 15,
+    "executed_stages": 15,
+    "successful_executions": 15,
+    "execution_errors": 0,
+    "not_applicable_stages": 0,
+    "skipped_stages": 0,
+    "abstentions": 0,
+    "evidence_count": 0,
+    "final_decision": "VERIFIED",
+    "verification_status": "verified"
+  },
+  "lifecycle_trace": [
+    {
+      "stage": "Query Received",
+      "status": "EXECUTED",
+      "outputs": {}
+    },
+    {
+      "stage": "Input Validation",
+      "status": "EXECUTED",
+      "outputs": {}
+    },
+    {
+      "stage": "Query Understanding",
+      "status": "EXECUTED",
+      "outputs": {}
+    },
+    {
+      "stage": "Capability & Sensor Routing",
+      "status": "EXECUTED",
+      "outputs": {}
+    },
+    {
+      "stage": "Evidence Planning",
+      "status": "EXECUTED",
+      "outputs": {}
+    },
+    {
+      "stage": "Input Scene Resolution",
+      "status": "EXECUTED",
+      "outputs": {
+        "classified_assets": [
+          {
+            "modality": "optical",
+            "temporal_tag": "T1",
+            "bands": [],
+            "sensor": "Sentinel-2"
+          },
+          {
+            "modality": "optical",
+            "temporal_tag": "T2",
+            "bands": [],
+            "sensor": "Sentinel-2"
+          },
+          {
+            "modality": "sar",
+            "temporal_tag": null,
+            "bands": [],
+            "sensor": "Sentinel-1"
+          }
+        ],
+        "input_bindings": {
+          "T1": [
+            "S2_T1.tif",
+            "S2_T2.tif"
+          ],
+          "T2": [
+            "S2_T1.tif",
+            "S2_T2.tif"
+          ],
+          "T3": [
+            "S2_T1.tif",
+            "S2_T2.tif"
+          ]
+        }
+      }
+    },
+    {
+      "stage": "Preprocessing & Alignment",
+      "status": "EXECUTED",
+      "outputs": {}
+    },
+    {
+      "stage": "Specialist Perception Execution",
+      "status": "EXECUTED",
+      "outputs": {}
+    },
+    {
+      "stage": "Evidence Registration",
+      "status": "EXECUTED",
+      "outputs": {}
+    },
+    {
+      "stage": "GIS Spatial Processing",
+      "status": "EXECUTED",
+      "outputs": {}
+    },
+    {
+      "stage": "GeoReason Verification",
+      "status": "EXECUTED",
+      "outputs": {}
+    },
+    {
+      "stage": "Confidence & Abstention Decision",
+      "status": "EXECUTED",
+      "outputs": {}
+    },
+    {
+      "stage": "Response Generation",
+      "status": "EXECUTED",
+      "outputs": {}
+    },
+    {
+      "stage": "Visualization Preparation",
+      "status": "EXECUTED",
+      "outputs": {}
+    },
+    {
+      "stage": "Execution Report Packaging",
+      "status": "EXECUTED",
+      "outputs": {}
+    }
+  ]
+}

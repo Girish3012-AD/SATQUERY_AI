@@ -616,7 +616,8 @@ class VqaSpecialist(Specialist):
                         if self.adapter_path is not None
                         else None
                     ),
-                    "remote_sensing_adapted": (
+                    "remote_sensing_adapted": False,
+                    "evidence_grounded": (
                         self.adapter_path is not None
                     ),
                     "device": str(

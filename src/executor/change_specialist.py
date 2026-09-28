@@ -24,6 +24,12 @@ class ChangeSpecialist(Specialist):
 
     CAPABILITY = "temporal_analysis"
 
+    REQUIRED_INPUT_PROFILE = {
+        "modality": "optical",
+        "temporal": "bi-temporal",
+        "count": 2
+    }
+
     def __init__(
         self,
         default_threshold: float = 0.15,

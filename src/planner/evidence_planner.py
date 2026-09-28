@@ -185,28 +185,109 @@ class EvidencePlanner:
             )
 
         # Spatial operations
-        # Each GIS operation consumes only the immediately preceding
-        # evidence-producing step. This keeps the execution chain
-        # linear and prevents stale upstream dependencies from being
-        # reintroduced.
-        previous_ids = [steps[-1].step_id] if steps else []
+        #
+        # For multi-specialist queries with GIS operations, the plan
+        # must correctly wire dependencies:
+        #
+        #   "buildings within 500m of flooded areas"
+        #     → buffer(flood_evidence, 500m)
+        #     → intersection(buffered_flood, building_evidence)
+        #
+        # When multiple detection specialists and buffer+intersection
+        # are both present, the planner creates a dependency DAG rather
+        # than a linear chain.
 
-        for operation in task_spec.spatial_operations:
-            step_id = f"T{len(steps) + 1}"
-
-            parameters = dict(task_spec.parameters)
-
-            steps.append(
-                PlanStep(
-                    step_id=step_id,
-                    task=operation,
-                    operation=operation,
-                    depends_on=previous_ids.copy(),
-                    parameters=parameters,
+        if task_spec.spatial_operations and specialist_detection_ids:
+            has_buffer = "buffer" in task_spec.spatial_operations
+            # For multi-specialist buffer+intersection workflows:
+            #   buffer the FIRST detection specialist,
+            #   then intersect the buffer with the SECOND.
+            if (
+                has_buffer
+                and len(specialist_detection_ids) >= 2
+            ):
+                # Buffer the first detection specialist output
+                buffer_target_id = specialist_detection_ids[0]
+                buffer_step_id = f"T{len(steps) + 1}"
+                steps.append(
+                    PlanStep(
+                        step_id=buffer_step_id,
+                        task="buffer",
+                        operation="buffer",
+                        depends_on=[buffer_target_id],
+                        parameters=dict(task_spec.parameters),
+                    )
                 )
-            )
 
-            previous_ids = [step_id]
+                # Intersect the buffer with the second detection specialist
+                intersect_target_id = specialist_detection_ids[1]
+                intersection_step_id = f"T{len(steps) + 1}"
+                steps.append(
+                    PlanStep(
+                        step_id=intersection_step_id,
+                        task="intersection",
+                        operation="intersection",
+                        depends_on=[
+                            buffer_step_id,
+                            intersect_target_id,
+                        ],
+                        parameters=dict(task_spec.parameters),
+                    )
+                )
+
+                # Any remaining spatial operations (not buffer/intersection)
+                remaining_ops = [
+                    op for op in task_spec.spatial_operations
+                    if op not in ("buffer", "intersection")
+                ]
+                previous_ids = [intersection_step_id]
+                for operation in remaining_ops:
+                    sid = f"T{len(steps) + 1}"
+                    steps.append(
+                        PlanStep(
+                            step_id=sid,
+                            task=operation,
+                            operation=operation,
+                            depends_on=previous_ids.copy(),
+                            parameters=dict(task_spec.parameters),
+                        )
+                    )
+                    previous_ids = [sid]
+
+            else:
+                # Fallback: linear chaining for single-specialist
+                # or simple spatial operations.
+                previous_ids = [steps[-1].step_id] if steps else []
+
+                for operation in task_spec.spatial_operations:
+                    step_id = f"T{len(steps) + 1}"
+                    steps.append(
+                        PlanStep(
+                            step_id=step_id,
+                            task=operation,
+                            operation=operation,
+                            depends_on=previous_ids.copy(),
+                            parameters=dict(task_spec.parameters),
+                        )
+                    )
+                    previous_ids = [step_id]
+
+        elif task_spec.spatial_operations:
+            # No specialist detection steps — pure GIS chain.
+            previous_ids = [steps[-1].step_id] if steps else []
+
+            for operation in task_spec.spatial_operations:
+                step_id = f"T{len(steps) + 1}"
+                steps.append(
+                    PlanStep(
+                        step_id=step_id,
+                        task=operation,
+                        operation=operation,
+                        depends_on=previous_ids.copy(),
+                        parameters=dict(task_spec.parameters),
+                    )
+                )
+                previous_ids = [step_id]
 
         # Verification is always the final planning stage.
         if steps:

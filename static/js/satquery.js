@@ -322,6 +322,13 @@ class SATQueryApp {
         const normalized = {
             success: data.success !== undefined ? data.success : true,
             status: data.status || data.verification_status || "completed",
+            // P1-2: Decoupled status fields
+            execution_status: data.execution_status
+                || (data.success !== undefined ? (data.success ? "COMPLETED" : "FAILED") : "COMPLETED"),
+            verification_status: data.verification_status
+                || (data.verification || data.georeason_verification || {}).status
+                || "not_evaluated",
+            confidence_calibration: data.confidence_calibration || "uncalibrated",
             task_id: data.task_id || "",
             query: data.query || data.user_query || "",
             task_type: data.task_type || "",
@@ -336,6 +343,9 @@ class SATQueryApp {
             messages: data.messages || [],
             evidence: data.evidence || data.evidence_objects || [],
             execution_time_seconds: data.execution_time_seconds || data.total_time_seconds || 0,
+            // P1-3: Lifecycle trace — pass through for replay rendering
+            lifecycle_trace: data.lifecycle_trace || [],
+            pipeline_metrics: data.pipeline_metrics || {},
             mode: "audit_replay",
             audit_filename: filename,
             // Pass through raw audit data for trace rendering
@@ -391,8 +401,20 @@ class SATQueryApp {
         if (!el) return;
 
         const metrics = data.pipeline_metrics || {};
-        const verStatus = (data.status || metrics.verification_status || "completed").toUpperCase();
-        const statusClass = this.statusBadgeClass(verStatus);
+
+        // EXECUTION STATUS — did execution complete?
+        const execStatusRaw = data.execution_status
+            || (data.success !== undefined ? (data.success ? "completed" : "failed") : "completed");
+        const execStatusClass = this.statusBadgeClass(execStatusRaw, "execution");
+
+        // VERIFICATION STATUS — only from the backend verifier
+        const verification = data.verification || {};
+        const verStatusRaw = verification.status ? verification.status : "not_evaluated";
+        const verStatusClass = this.statusBadgeClass(verStatusRaw, "verification");
+        const displayVerStatus = verStatusRaw === "low_confidence" ? "not_verified"
+            : verStatusRaw === "abstain" ? "inconclusive"
+            : verStatusRaw;
+
         const modeLabel = mode === "replay"
             ? '<span class="status-badge status-badge--replay">📂 AUDIT REPLAY</span>'
             : '<span class="status-badge status-badge--live">⚡ LIVE EXECUTION</span>';
@@ -403,9 +425,12 @@ class SATQueryApp {
         const execErrors = metrics.execution_errors || 0;
         const evCount = metrics.evidence_count !== undefined ? metrics.evidence_count : (data.evidence_ids ? data.evidence_ids.length : 0);
 
-        let html = `<div style="margin-bottom:12px;display:flex;gap:8px;align-items:center;">
+        let html = `<div style="margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
             ${modeLabel}
-            <span class="status-badge ${statusClass}">${this.esc(verStatus)}</span>
+            <span style="font-size:0.85em;color:#7f8c8d;">Execution:</span>
+            <span class="status-badge ${execStatusClass}">${this.esc(execStatusRaw.toUpperCase())}</span>
+            <span style="font-size:0.85em;color:#7f8c8d;">Evidence:</span>
+            <span class="status-badge ${verStatusClass}">${this.esc(displayVerStatus.toUpperCase())}</span>
         </div>`;
 
         html += `<div class="evidence-card">`;
@@ -430,8 +455,24 @@ class SATQueryApp {
         const el = document.getElementById("answer-content");
         if (!el) return;
 
-        const statusClass = this.statusBadgeClass(data.status);
-        let html = `<span class="status-badge ${statusClass}">${this.esc((data.status || "unknown").toUpperCase())}</span>`;
+        // EXECUTION STATUS badge
+        const execStatus = data.execution_status
+            || (data.success !== undefined ? (data.success ? "completed" : "failed") : "completed");
+        const execStatusClass = this.statusBadgeClass(execStatus, "execution");
+
+        // VERIFICATION STATUS badge — from backend verifier
+        const answerVerification = data.verification || {};
+        const verStatus = answerVerification.status ? answerVerification.status : "not_evaluated";
+        const verStatusClass = this.statusBadgeClass(verStatus, "verification");
+        const displayVerStatus = verStatus === "low_confidence" ? "not_verified"
+            : verStatus === "abstain" ? "inconclusive"
+            : verStatus;
+
+        let html = `<span style="font-size:0.8em;color:#7f8c8d;">Execution: </span>
+            <span class="status-badge ${execStatusClass}">${this.esc(execStatus.toUpperCase())}</span>
+            &nbsp;
+            <span style="font-size:0.8em;color:#7f8c8d;">Evidence: </span>
+            <span class="status-badge ${verStatusClass}">${this.esc(displayVerStatus.toUpperCase())}</span>`;
 
         // Extract answer text from evidence or messages
         let answerText = "";
@@ -484,6 +525,7 @@ class SATQueryApp {
 
     /* ---------- Panel 5: Map ---------- */
 
+
     renderMapPanel(data) {
         const geometries = [];
         if (data.evidence) {
@@ -498,20 +540,42 @@ class SATQueryApp {
             }
         }
 
-        // Also check raw audit data for geometries
         if (data._raw) {
             this.extractGeometriesFromRaw(data._raw, geometries);
         }
 
+        let noGeoEl = document.getElementById("map-no-geometry");
+        if (!noGeoEl) {
+            const mapContainer = document.getElementById("map");
+            if (mapContainer) {
+                noGeoEl = document.createElement("div");
+                noGeoEl.id = "map-no-geometry";
+                noGeoEl.style.position = "absolute";
+                noGeoEl.style.top = "10px";
+                noGeoEl.style.left = "50px";
+                noGeoEl.style.zIndex = "1000";
+                noGeoEl.style.background = "rgba(255,255,255,0.9)";
+                noGeoEl.style.padding = "5px 10px";
+                noGeoEl.style.borderRadius = "4px";
+                noGeoEl.style.border = "1px solid #ccc";
+                noGeoEl.style.fontWeight = "bold";
+                noGeoEl.style.color = "#7f8c8d";
+                noGeoEl.style.pointerEvents = "none";
+                noGeoEl.innerHTML = "Spatial geometry unavailable";
+                mapContainer.appendChild(noGeoEl);
+            }
+        }
+
         if (geometries.length === 0) {
-            // No geometries to display — show default AOI
             this.showPanel("map-panel");
             this.initMap();
-            // Default Rasuwa AOI
             if (this.map) {
                 this.map.setView([28.25, 85.25], 10);
             }
+            if (noGeoEl) noGeoEl.style.display = "block";
             return;
+        } else {
+            if (noGeoEl) noGeoEl.style.display = "none";
         }
 
         this.showPanel("map-panel");
@@ -523,16 +587,25 @@ class SATQueryApp {
             flood_detection: "#2980b9",
             building_detection: "#e74c3c",
             temporal_analysis: "#f39c12",
+            bi_temporal_water_change: "#f39c12",
+            sar_analysis: "#f1c40f",
             buffer: "#9b59b6",
             intersection: "#2ecc71",
             area: "#1abc9c",
-            gis_buffer: "#9b59b6",
-            gis_intersection: "#2ecc71",
-            gis_area: "#1abc9c",
             vqa: "#3498db",
         };
 
+        const layerGroups = {
+            "Water": L.layerGroup(),
+            "Buildings": L.layerGroup(),
+            "Change": L.layerGroup(),
+            "SAR": L.layerGroup(),
+            "Optical": L.layerGroup(),
+            "Other": L.layerGroup()
+        };
+
         const allBounds = [];
+        this.mapFeaturesByEvidenceId = {};
 
         for (const item of geometries) {
             try {
@@ -542,16 +615,32 @@ class SATQueryApp {
                         color: color,
                         weight: 2,
                         fillColor: color,
-                        fillOpacity: 0.2,
+                        fillOpacity: 0.4,
                     },
-                    onEachFeature: (feature, layer) => {
-                        layer.bindPopup(
+                    onEachFeature: (feature, l) => {
+                        l.bindPopup(
                             `<strong>${this.esc(item.task)}</strong><br>` +
-                            `<code>${this.esc(item.evidence_id)}</code>`
+                            `<code>${this.esc(item.evidence_id)}</code><br>` +
+                            `<button style="margin-top:5px;cursor:pointer;" onclick="app.highlightEvidence('${this.esc(item.evidence_id)}')">View Evidence</button>`
                         );
+                        if (item.evidence_id) {
+                            if (!this.mapFeaturesByEvidenceId[item.evidence_id]) {
+                                this.mapFeaturesByEvidenceId[item.evidence_id] = [];
+                            }
+                            this.mapFeaturesByEvidenceId[item.evidence_id].push(l);
+                        }
                     },
                 });
-                layer.addTo(this.map);
+
+                // Determine group
+                let groupName = "Other";
+                if (item.task.includes("water") || item.task.includes("flood")) groupName = "Water";
+                else if (item.task.includes("building")) groupName = "Buildings";
+                else if (item.task.includes("temporal") || item.task.includes("change")) groupName = "Change";
+                else if (item.task.includes("sar")) groupName = "SAR";
+                else if (item.task.includes("optical") || item.task === "vqa") groupName = "Optical";
+
+                layerGroups[groupName].addLayer(layer);
                 this.mapLayers.push(layer);
 
                 const bounds = layer.getBounds();
@@ -563,7 +652,18 @@ class SATQueryApp {
             }
         }
 
-        // Fit map to all geometries
+        const activeOverlays = {};
+        for (const [name, group] of Object.entries(layerGroups)) {
+            if (group.getLayers().length > 0) {
+                activeOverlays[name] = group;
+                group.addTo(this.map);
+            }
+        }
+
+        if (Object.keys(activeOverlays).length > 0) {
+            this.layerControl = L.control.layers(null, activeOverlays, { collapsed: false }).addTo(this.map);
+        }
+
         if (allBounds.length > 0) {
             let combinedBounds = allBounds[0];
             for (let i = 1; i < allBounds.length; i++) {
@@ -574,7 +674,6 @@ class SATQueryApp {
     }
 
     extractGeometriesFromRaw(raw, geometries) {
-        // Recursively search for geometry objects in audit data
         if (!raw || typeof raw !== "object") return;
 
         if (raw.geometry && raw.geometry.type) {
@@ -591,7 +690,7 @@ class SATQueryApp {
             }
         } else {
             for (const key of Object.keys(raw)) {
-                if (key === "geometry") continue; // Already handled
+                if (key === "geometry") continue;
                 this.extractGeometriesFromRaw(raw[key], geometries);
             }
         }
@@ -604,7 +703,7 @@ class SATQueryApp {
 
         this.map = L.map("map").setView([28.25, 85.25], 10);
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+            attribution: '&copy; OpenStreetMap',
             maxZoom: 19,
         }).addTo(this.map);
     }
@@ -615,6 +714,45 @@ class SATQueryApp {
             this.map.removeLayer(layer);
         }
         this.mapLayers = [];
+        if (this.layerControl) {
+            this.map.removeControl(this.layerControl);
+            this.layerControl = null;
+        }
+        this.mapFeaturesByEvidenceId = {};
+    }
+
+    highlightMapFeature(evidenceId) {
+        if (!this.map || !this.mapFeaturesByEvidenceId || !this.mapFeaturesByEvidenceId[evidenceId]) return;
+        const layers = this.mapFeaturesByEvidenceId[evidenceId];
+        
+        const bounds = L.latLngBounds();
+        layers.forEach(l => {
+            if (l.getBounds) bounds.extend(l.getBounds());
+            if (l.openPopup) l.openPopup();
+            
+            // Temporary highlight effect
+            const origColor = l.options.color;
+            if (l.setStyle) {
+                l.setStyle({ color: '#ff0', weight: 4 });
+                setTimeout(() => {
+                    if (this.map.hasLayer(l)) l.setStyle({ color: origColor, weight: 2 });
+                }, 2000);
+            }
+        });
+        if (bounds.isValid()) this.map.fitBounds(bounds, { padding: [20, 20], maxZoom: 16 });
+    }
+
+    highlightEvidence(evidenceId) {
+        this.showPanel("evidence-panel");
+        const card = document.getElementById(`ev-card-${evidenceId}`);
+        if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            card.style.transition = "background-color 0.5s";
+            card.style.backgroundColor = "#fff3cd";
+            setTimeout(() => {
+                card.style.backgroundColor = "";
+            }, 2000);
+        }
     }
 
     /* ---------- Panel 6: Evidence ---------- */
@@ -628,17 +766,18 @@ class SATQueryApp {
         let html = `<p style="color:#7f8c8d;margin-bottom:12px;">${data.evidence.length} evidence object(s)</p>`;
 
         for (const ev of data.evidence) {
-            const verifiedBadge = (ev.confidence !== undefined && ev.confidence >= 0.6)
-                ? '<span class="status-badge status-badge--verified">VERIFIED</span>'
-                : '<span class="status-badge status-badge--low-confidence">UNVERIFIED</span>';
-
-            html += `<div class="evidence-card">`;
+            const hasGeometry = ev.geometry && ev.geometry.type;
+            const clickHandler = hasGeometry ? `onclick="app.highlightMapFeature('${this.esc(ev.evidence_id)}')" style="cursor:pointer;" title="Click to view on map"` : "";
+            
+            html += `<div class="evidence-card" id="ev-card-${this.esc(ev.evidence_id || '')}" ${clickHandler}>`;
             html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">`;
-            html += `<code class="evidence-card__id">${this.esc(ev.evidence_id || "—")}</code>`;
-            html += verifiedBadge;
+            html += `<code class="evidence-card__id">${this.esc(ev.evidence_id || "?")}</code>`;
+            if (hasGeometry) {
+                html += `<span style="font-size:0.8em;color:#2980b9;">&#x1F5FA;&#xFE0F; Map feature</span>`;
+            }
             html += `</div>`;
-            html += `<div class="evidence-card__field"><span class="field-label">Task:</span> ${this.esc(ev.task || "—")}</div>`;
-            html += `<div class="evidence-card__field"><span class="field-label">Model:</span> ${this.esc(ev.model || "—")}</div>`;
+            html += `<div class="evidence-card__field"><span class="field-label">Task:</span> ${this.esc(ev.task || "-")}</div>`;
+            html += `<div class="evidence-card__field"><span class="field-label">Model:</span> ${this.esc(ev.model || "-")}</div>`;
             if (ev.sensor) html += `<div class="evidence-card__field"><span class="field-label">Sensor:</span> ${this.esc(ev.sensor)}</div>`;
             if (ev.modality) html += `<div class="evidence-card__field"><span class="field-label">Modality:</span> ${this.esc(ev.modality)}</div>`;
             if (ev.confidence !== undefined) {
@@ -660,7 +799,7 @@ class SATQueryApp {
                 html += `<div class="evidence-card__field"><span class="field-label">Result:</span> ${this.esc(preview)}</div>`;
             }
 
-            if (ev.geometry && ev.geometry.type) {
+            if (hasGeometry) {
                 html += `<div class="evidence-card__field"><span class="field-label">Geometry:</span> ${this.esc(ev.geometry.type)}</div>`;
             }
 
@@ -679,25 +818,38 @@ class SATQueryApp {
 
         let html = "";
 
-        // Verification status
+        // EXECUTION STATUS - separate from verification
+        const execStatus = data.execution_status || (data.success !== undefined ? (data.success ? "COMPLETED" : "FAILED") : null);
+
+        // VERIFICATION STATUS - from backend verifier only
         const verification = data.verification || {};
-        const verStatus = verification.status || data.status || "unknown";
-        const verStatusClass = this.statusBadgeClass(verStatus);
+        const verStatus = verification.status ? verification.status : "not_evaluated";
+        const verStatusClass = this.statusBadgeClass(verStatus, "verification");
+        const displayStatus = verStatus === "low_confidence" ? "not_verified"
+            : verStatus === "abstain" ? "inconclusive"
+            : verStatus;
 
-        html += `<div style="margin-bottom:12px;">
-            <span class="status-badge ${verStatusClass}">${this.esc(verStatus.toUpperCase())}</span>
-        </div>`;
+        // If execution is RUNNING, clear any previous verification display
+        if (execStatus && execStatus.toLowerCase() === "running") {
+            html += `<div style="margin-bottom:12px;color:#f39c12;font-weight:bold;">Execution running — verification result will appear on completion.</div>`;
+        } else {
+            html += `<div style="margin-bottom:12px; display:flex; gap:10px; align-items:center;">
+                <span style="font-weight:bold;color:#bdc3c7;">Evidence:</span>
+                <span class="status-badge ${verStatusClass}">${this.esc(displayStatus.toUpperCase())}</span>
+                <span style="font-size:0.8em;color:#7f8c8d;">(Verified against configured evidence criteria)</span>
+            </div>`;
+        }
 
-        // Confidence value
+        // CONFIDENCE — completely separate
         const confValue = verification.confidence;
         if (confValue !== undefined && confValue !== null) {
             const confPercent = (confValue * 100).toFixed(1);
-            const barColor = confValue >= 0.6 ? "#2ecc71" : confValue >= 0.3 ? "#f39c12" : "#e74c3c";
+            const barColor = "#3498db"; // Neutral blue - confidence is NOT verification
 
+            html += `<div style="margin-bottom:8px;font-weight:bold;color:#bdc3c7;">System confidence: ${confPercent}% (uncalibrated)</div>`;
             html += `<div class="confidence-meter">
                 <div class="confidence-meter__fill" style="width:${confPercent}%;background:${barColor};"></div>
-            </div>
-            <div style="text-align:center;font-size:1.4em;font-weight:bold;margin:8px 0;">${confPercent}%</div>`;
+            </div>`;
         }
 
         // Calibration warning — always shown because confidence is uncalibrated
@@ -779,11 +931,16 @@ class SATQueryApp {
         } else {
             // Fallback for legacy execution step view
             const steps = data.executed_steps || [];
-            for (let i = 0; i < steps.length; i++) {
-                html += `<div class="trace-step">`;
-                html += `<span class="trace-step__number">[${i + 1}]</span> `;
-                html += `<span class="trace-step__component">${this.esc(steps[i])}</span> — ✅ EXECUTED`;
-                html += `</div>`;
+            if (steps.length > 0) {
+                html += `<div style="color:#f39c12;margin-bottom:8px;font-size:0.9em;">⚠ Full lifecycle trace unavailable for this artifact. Showing legacy execution steps.</div>`;
+                for (let i = 0; i < steps.length; i++) {
+                    html += `<div class="trace-step">`;
+                    html += `<span class="trace-step__number">[${i + 1}]</span> `;
+                    html += `<span class="trace-step__component">${this.esc(steps[i])}</span> — ✅ EXECUTED`;
+                    html += `</div>`;
+                }
+            } else {
+                html += `<div style="color:#7f8c8d;font-style:italic;padding:12px 0;">Lifecycle trace unavailable. This artifact was generated before lifecycle tracing was implemented, or the trace was not preserved during serialization.</div>`;
             }
         }
 
@@ -917,14 +1074,26 @@ class SATQueryApp {
         if (el) el.classList.remove("hidden");
     }
 
-    statusBadgeClass(status) {
+    statusBadgeClass(status, type="execution") {
         if (!status) return "status-badge--failed";
         const s = status.toLowerCase();
-        if (s === "verified") return "status-badge--verified";
-        if (s === "completed") return "status-badge--verified";
-        if (s === "low_confidence") return "status-badge--low-confidence";
+        
+        if (type === "execution") {
+            if (s === "completed") return "status-badge--verified";
+            if (s === "running" || s === "processing") return "status-badge--processing";
+            if (s === "failed" || s === "error") return "status-badge--failed";
+            return "status-badge--live";
+        } else if (type === "verification") {
+            if (s === "verified") return "status-badge--verified";
+            if (s === "not_verified" || s === "low_confidence" || s === "conflict") return "status-badge--failed";
+            if (s === "inconclusive" || s === "abstain") return "status-badge--low-confidence";
+            if (s === "not_evaluated" || s === "unknown") return "status-badge--live";
+        }
+        
+        // Fallback for older code that doesn't pass type
+        if (s === "verified" || s === "completed") return "status-badge--verified";
         if (s === "failed" || s === "error") return "status-badge--failed";
-        if (s === "abstain") return "status-badge--low-confidence";
+        if (s === "low_confidence" || s === "abstain") return "status-badge--low-confidence";
         if (s === "processing") return "status-badge--processing";
         return "status-badge--live";
     }

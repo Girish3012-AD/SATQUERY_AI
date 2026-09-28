@@ -14,6 +14,12 @@ from src.schemas.evidence import Evidence
 class TemporalChangeSpecialist(Specialist):
     MODEL_NAME = "TemporalChangeSpecialist_ChangeUNet"
     CAPABILITY = "temporal_analysis"
+
+    REQUIRED_INPUT_PROFILE = {
+        "modality": "optical",
+        "temporal": "bi-temporal",
+        "count": 2
+    }
     """
     Unified temporal specialist.
 

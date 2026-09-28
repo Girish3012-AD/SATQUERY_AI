@@ -28,6 +28,10 @@ class SARSpecialist(Specialist):
     CAPABILITY = "sar_analysis"
     MODEL_NAME = "SAR_Deterministic_Characterizer"
 
+    REQUIRED_INPUT_PROFILE = {
+        "modality": "sar"
+    }
+
     @property
     def capability(self) -> str:
         return self.CAPABILITY

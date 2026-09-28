@@ -218,6 +218,35 @@ class TaskController:
             if operation not in spatial_operations:
                 spatial_operations.append(operation)
 
+        # ---------------------------------------------------------
+        # Generic visual interpretation
+        #
+        # Only add VQA when the query does not already describe a
+        # more specific specialist capability.
+        # ---------------------------------------------------------
+        specialist_capabilities = {
+            "temporal_analysis",
+            "sar_analysis",
+            "building_detection",
+            "flood_detection",
+            "water_detection",
+            "vegetation_detection",
+            "crop_detection",
+            "road_detection",
+        }
+
+        # If the query implies a buffer relationship between two entities
+        # (e.g., "buildings within 500m of flooded areas"), we must ensure
+        # BOTH buffer and intersection are registered as spatial operations.
+        has_buffer = "buffer" in spatial_operations
+        specialist_capabilities_detected = [
+            cap for cap in capabilities if cap in specialist_capabilities
+        ]
+        
+        if has_buffer and len(specialist_capabilities_detected) >= 2:
+            if "intersection" not in spatial_operations:
+                spatial_operations.append("intersection")
+
         # Explicit area-measurement intent can occur in phrases such as
         # "total detected building area", where the word "area" is
         # meaningful as a GIS measurement but does not match one of the
@@ -278,17 +307,6 @@ class TaskController:
         # Only add VQA when the query does not already describe a
         # more specific specialist capability.
         # ---------------------------------------------------------
-        specialist_capabilities = {
-            "temporal_analysis",
-            "sar_analysis",
-            "building_detection",
-            "flood_detection",
-            "water_detection",
-            "vegetation_detection",
-            "crop_detection",
-            "road_detection",
-        }
-
         if explicit_vqa_intent:
             if "vqa" not in capabilities:
                 capabilities.append("vqa")

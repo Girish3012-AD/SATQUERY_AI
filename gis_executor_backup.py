@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any
 
@@ -110,11 +110,8 @@ class GISEvidenceExecutor:
         if crs.is_projected:
             return crs
         if crs.is_geographic:
-            if geometry.is_empty:
-                return None
             import math
             lon, lat = geometry.centroid.x, geometry.centroid.y
-            
             if not (-180 <= lon <= 180 and -90 <= lat <= 90):
                 return None
             zone = math.floor((lon + 180) / 6) + 1
@@ -127,7 +124,6 @@ class GISEvidenceExecutor:
             return geometry
         from shapely.ops import transform
         from pyproj import Transformer
-        
         transformer = Transformer.from_crs(source_crs, target_crs, always_xy=True).transform
         return transform(transformer, geometry)
 
@@ -217,7 +213,6 @@ class GISEvidenceExecutor:
 
         operation = operation.lower().strip()
 
-
         if operation == "buffer":
             distance_m = parameters.get("distance_m")
 
@@ -227,22 +222,21 @@ class GISEvidenceExecutor:
                 )
 
             source = geometry_evidence[-1]
-            distance_m = self._validate_distance_parameter(distance_m)
-            
-            orig_crs = self._crs_from_evidence(source)
-            if orig_crs is None:
-                raise ValueError(
-                    f"GIS {operation} requires CRS metadata on evidence '{source.evidence_id}'."
-                )
+            crs = self._validate_projected_crs(
+                source,
+                operation,
+            )
+
+            distance_m = self._validate_distance_parameter(
+                distance_m
+            )
 
             geometry = self._geometry_from_evidence(source)
-            proj_crs = self._get_projected_crs(geometry, orig_crs)
-            if proj_crs is None:
-                self._validate_projected_crs(source, operation)
 
-            proj_geom = self._reproject(geometry, orig_crs, proj_crs)
-            result_proj_geom = buffer_geometry(proj_geom, distance_m)
-            result_geometry = self._reproject(result_proj_geom, proj_crs, orig_crs)
+            result_geometry = buffer_geometry(
+                geometry,
+                distance_m,
+            )
 
             return self._make_evidence(
                 operation=operation,
@@ -251,42 +245,31 @@ class GISEvidenceExecutor:
                 measurement={
                     "operation": "buffer",
                     "distance_m": distance_m,
-                    "area_m2": calculate_area(result_proj_geom),
-                    "crs": orig_crs.to_string(),
-                    "projected_crs_used": proj_crs.to_string() if orig_crs != proj_crs else None
+                    "area_m2": calculate_area(result_geometry),
+                    "crs": crs.to_string(),
                 },
             )
 
         if operation == "intersection":
             if len(geometry_evidence) < 2:
                 raise ValueError(
-                    "Intersection requires at least two geometry-bearing evidence objects."
+                    "Intersection requires at least two geometry-bearing "
+                    "evidence objects."
                 )
 
             first_evidence = geometry_evidence[-2]
             second_evidence = geometry_evidence[-1]
-            
-            crs1 = self._crs_from_evidence(first_evidence)
-            crs2 = self._crs_from_evidence(second_evidence)
-            if crs1 is None or crs2 is None:
-                raise ValueError(f"GIS {operation} requires CRS metadata on evidence.")
+
+            crs, _ = self._validate_compatible_crs(
+                first_evidence,
+                second_evidence,
+                operation,
+            )
 
             first = self._geometry_from_evidence(first_evidence)
             second = self._geometry_from_evidence(second_evidence)
 
-            proj_crs1 = self._get_projected_crs(first, crs1)
-            proj_crs2 = self._get_projected_crs(second, crs2)
-            
-            if proj_crs1 is None or proj_crs2 is None or (proj_crs1 != proj_crs2 and crs1.is_projected and crs2.is_projected):
-                self._validate_compatible_crs(first_evidence, second_evidence, operation)
-            
-            common_proj_crs = proj_crs1 if proj_crs1 else crs1
-
-            proj_first = self._reproject(first, crs1, common_proj_crs)
-            proj_second = self._reproject(second, crs2, common_proj_crs)
-
-            result_proj_geom = intersect_geometries(proj_first, proj_second)
-            result_geometry = self._reproject(result_proj_geom, common_proj_crs, crs1)
+            result_geometry = intersect_geometries(first, second)
 
             return self._make_evidence(
                 operation=operation,
@@ -294,38 +277,32 @@ class GISEvidenceExecutor:
                 result_geometry=result_geometry,
                 measurement={
                     "operation": "intersection",
-                    "area_m2": calculate_area(result_proj_geom),
+                    "area_m2": calculate_area(result_geometry),
                     "is_empty": bool(result_geometry.is_empty),
-                    "crs": crs1.to_string(),
-                    "projected_crs_used": common_proj_crs.to_string() if crs1 != common_proj_crs else None
+                    "crs": crs.to_string(),
                 },
             )
 
         if operation == "distance":
             if len(geometry_evidence) < 2:
-                raise ValueError("Distance requires at least two geometry-bearing evidence objects.")
+                raise ValueError(
+                    "Distance requires at least two geometry-bearing "
+                    "evidence objects."
+                )
 
             first_evidence = geometry_evidence[-2]
             second_evidence = geometry_evidence[-1]
-            
-            crs1 = self._crs_from_evidence(first_evidence)
-            crs2 = self._crs_from_evidence(second_evidence)
-            if crs1 is None or crs2 is None:
-                raise ValueError(f"GIS {operation} requires CRS metadata on evidence.")
+
+            crs, _ = self._validate_compatible_crs(
+                first_evidence,
+                second_evidence,
+                operation,
+            )
 
             first = self._geometry_from_evidence(first_evidence)
             second = self._geometry_from_evidence(second_evidence)
 
-            proj_crs1 = self._get_projected_crs(first, crs1)
-            proj_crs2 = self._get_projected_crs(second, crs2)
-            if proj_crs1 is None or proj_crs2 is None or (proj_crs1 != proj_crs2 and crs1.is_projected and crs2.is_projected):
-                self._validate_compatible_crs(first_evidence, second_evidence, operation)
-                
-            common_proj_crs = proj_crs1 if proj_crs1 else crs1
-            
-            proj_first = self._reproject(first, crs1, common_proj_crs)
-            proj_second = self._reproject(second, crs2, common_proj_crs)
-            distance = calculate_distance(proj_first, proj_second)
+            distance = calculate_distance(first, second)
 
             return self._make_evidence(
                 operation=operation,
@@ -334,25 +311,21 @@ class GISEvidenceExecutor:
                 measurement={
                     "operation": "distance",
                     "distance_m": float(distance),
-                    "crs": crs1.to_string(),
-                    "projected_crs_used": common_proj_crs.to_string() if crs1 != common_proj_crs else None
+                    "crs": crs.to_string(),
                 },
                 result={"distance_m": float(distance)},
             )
 
         if operation == "area":
             source = geometry_evidence[-1]
-            orig_crs = self._crs_from_evidence(source)
-            if orig_crs is None:
-                raise ValueError(f"GIS {operation} requires CRS metadata.")
+            crs = self._validate_projected_crs(
+                source,
+                operation,
+            )
 
             geometry = self._geometry_from_evidence(source)
-            proj_crs = self._get_projected_crs(geometry, orig_crs)
-            if proj_crs is None:
-                self._validate_projected_crs(source, operation)
 
-            proj_geom = self._reproject(geometry, orig_crs, proj_crs)
-            area = calculate_area(proj_geom)
+            area = calculate_area(geometry)
 
             return self._make_evidence(
                 operation=operation,
@@ -361,8 +334,7 @@ class GISEvidenceExecutor:
                 measurement={
                     "operation": "area",
                     "area_m2": float(area),
-                    "crs": orig_crs.to_string(),
-                    "projected_crs_used": proj_crs.to_string() if orig_crs != proj_crs else None
+                    "crs": crs.to_string(),
                 },
                 result={"area_m2": float(area)},
             )

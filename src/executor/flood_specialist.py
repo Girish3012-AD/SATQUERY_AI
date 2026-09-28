@@ -51,6 +51,10 @@ class FloodSpecialist(Specialist):
     CAPABILITY = "flood_detection"
     MODEL_NAME = "NDWI_Sentinel2_FloodCandidate"
 
+    REQUIRED_INPUT_PROFILE = {
+        "modality": "optical"
+    }
+
     # Band layout when reading a multi-band GeoTIFF.
     # Overridable via infer() parameters.
     DEFAULT_GREEN_BAND = 1   # 1-indexed (B03 = band 1 in standard 4-band)

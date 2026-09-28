@@ -394,6 +394,7 @@ class ExecutionEngine:
         inputs: list[str] | None = None,
         specialist_bindings: dict[str, Specialist] | None = None,
         selected_models: dict[str, str] | None = None,
+        input_bindings: dict[str, list[str] | dict] | None = None,
     ) -> list[ExecutionResult]:
         """
         Execute a plan.
@@ -403,17 +404,35 @@ class ExecutionEngine:
 
         ``selected_models`` maps capability -> selected model name so the
         resulting Evidence records the authoritative routed model.
+
+        ``input_bindings`` maps step_id -> bound inputs (or failure reasons) to
+        prevent heterogeneous global broadcasting.
         """
         results: list[ExecutionResult] = []
 
         specialist_bindings = specialist_bindings or {}
         selected_models = selected_models or {}
+        input_bindings = input_bindings or {}
 
         # Map plan step IDs to the Evidence IDs produced by those steps.
         # This makes GIS dependencies explicit and auditable.
         step_evidence_ids: dict[str, list[str]] = {}
 
         for step in plan.steps:
+            # Handle possible Input Binding failure BEFORE dependencies
+            if step.step_id in input_bindings:
+                binding = input_bindings[step.step_id]
+                if isinstance(binding, dict) and "error" in binding:
+                    results.append(
+                        ExecutionResult(
+                            success=False,
+                            step_id=step.step_id,
+                            task=step.task,
+                            message=f"BLOCKED: {binding['error']}. {binding['reason']}",
+                        )
+                    )
+                    continue
+
             dependency_evidence_ids: list[str] = []
 
             for dependency_step_id in step.depends_on:
@@ -434,9 +453,16 @@ class ExecutionEngine:
                     step_evidence_ids[dependency_step_id]
                 )
 
+            # Route step-specific inputs if a binding exists
+            step_inputs = inputs
+            if step.step_id in input_bindings:
+                binding = input_bindings[step.step_id]
+                if isinstance(binding, list):
+                    step_inputs = binding
+
             result = self.execute_step(
                 step,
-                inputs,
+                step_inputs,
                 specialist_override=specialist_bindings.get(step.task),
                 selected_model=selected_models.get(step.task),
                 dependency_evidence_ids=dependency_evidence_ids,

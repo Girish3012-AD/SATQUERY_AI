@@ -7,6 +7,18 @@ from typing import Any
 from .sentinel1_metadata import resolve_sentinel1_parameters
 
 
+from pydantic import BaseModel, Field
+
+class AssetProfile(BaseModel):
+    """Structured classification of an input asset."""
+    path: str
+    modality: str = "unknown"
+    temporal_tag: str | None = None
+    bands: list[str] = Field(default_factory=list)
+    sensor: str | None = None
+    metadata_source: str | None = None
+
+
 SENTINEL1_METADATA_DIR = Path(
     "data/remote_sensing/sentinel1/metadata"
 )
@@ -15,10 +27,7 @@ SENTINEL1_METADATA_DIR = Path(
 class InputMetadataResolver:
     """
     Resolve known local Earth-observation inputs into canonical
-    SATQuery execution parameters.
-
-    The resolver currently supports Sentinel-1 provenance metadata.
-    Unsupported inputs simply return an empty parameter dictionary.
+    SATQuery execution parameters and classify assets for routing.
     """
 
     def __init__(
@@ -77,6 +86,48 @@ class InputMetadataResolver:
                 return metadata_path
 
         return None
+
+    def classify_assets(self, inputs: list[str]) -> list[AssetProfile]:
+        """
+        Classify a list of input paths into typed AssetProfiles.
+        First tries JSON metadata, then falls back to deterministic filename parsing.
+        """
+        profiles = []
+        for input_path in inputs:
+            profile = AssetProfile(path=input_path)
+            
+            # Check explicit Sentinel-1 JSON metadata first
+            s1_metadata_path = self._find_sentinel1_metadata(input_path)
+            if s1_metadata_path:
+                profile.modality = "sar"
+                profile.sensor = "Sentinel-1"
+                profile.metadata_source = str(s1_metadata_path)
+            else:
+                # Deterministic filename fallback for untracked assets
+                path_upper = Path(input_path).name.upper()
+                
+                if "S1" in path_upper or "SAR" in path_upper or "GRD" in path_upper:
+                    profile.modality = "sar"
+                    profile.sensor = "Sentinel-1"
+                elif "S2" in path_upper or "OPTICAL" in path_upper or "B03" in path_upper or "B08" in path_upper:
+                    profile.modality = "optical"
+                    profile.sensor = "Sentinel-2"
+                
+                if "B03" in path_upper:
+                    profile.bands.append("B03")
+                if "B08" in path_upper:
+                    profile.bands.append("B08")
+                
+                if "T1" in path_upper:
+                    profile.temporal_tag = "T1"
+                elif "T2" in path_upper:
+                    profile.temporal_tag = "T2"
+
+                profile.metadata_source = "filename_fallback"
+
+            profiles.append(profile)
+            
+        return profiles
 
     def resolve(
         self,

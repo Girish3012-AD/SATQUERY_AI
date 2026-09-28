@@ -1,0 +1,109 @@
+{
+  "success": true,
+  "query": "What is in this image?",
+  "task_type": "vqa",
+  "selected_capabilities": {
+    "vqa": "VqaSpecialist"
+  },
+  "execution_status": null,
+  "verification_status": null,
+  "pipeline_metrics": {
+    "total_stages": 15,
+    "executed_stages": 14,
+    "successful_executions": 14,
+    "execution_errors": 0,
+    "not_applicable_stages": 1,
+    "skipped_stages": 0,
+    "abstentions": 1,
+    "evidence_count": 0,
+    "final_decision": "ABSTAIN",
+    "verification_status": "abstain"
+  },
+  "lifecycle_trace": [
+    {
+      "stage": "Query Received",
+      "status": "EXECUTED",
+      "outputs": {}
+    },
+    {
+      "stage": "Input Validation",
+      "status": "EXECUTED",
+      "outputs": {}
+    },
+    {
+      "stage": "Query Understanding",
+      "status": "EXECUTED",
+      "outputs": {}
+    },
+    {
+      "stage": "Capability & Sensor Routing",
+      "status": "EXECUTED",
+      "outputs": {}
+    },
+    {
+      "stage": "Evidence Planning",
+      "status": "EXECUTED",
+      "outputs": {}
+    },
+    {
+      "stage": "Input Scene Resolution",
+      "status": "EXECUTED",
+      "outputs": {
+        "classified_assets": [
+          {
+            "modality": "optical",
+            "temporal_tag": "T1",
+            "bands": [],
+            "sensor": "Sentinel-2"
+          }
+        ],
+        "input_bindings": {}
+      }
+    },
+    {
+      "stage": "Preprocessing & Alignment",
+      "status": "EXECUTED",
+      "outputs": {}
+    },
+    {
+      "stage": "Specialist Perception Execution",
+      "status": "EXECUTED",
+      "outputs": {}
+    },
+    {
+      "stage": "Evidence Registration",
+      "status": "EXECUTED",
+      "outputs": {}
+    },
+    {
+      "stage": "GIS Spatial Processing",
+      "status": "NOT_APPLICABLE",
+      "outputs": {}
+    },
+    {
+      "stage": "GeoReason Verification",
+      "status": "EXECUTED",
+      "outputs": {}
+    },
+    {
+      "stage": "Confidence & Abstention Decision",
+      "status": "EXECUTED",
+      "outputs": {}
+    },
+    {
+      "stage": "Response Generation",
+      "status": "EXECUTED",
+      "outputs": {}
+    },
+    {
+      "stage": "Visualization Preparation",
+      "status": "EXECUTED",
+      "outputs": {}
+    },
+    {
+      "stage": "Execution Report Packaging",
+      "status": "EXECUTED",
+      "outputs": {}
+    }
+  ]
+}

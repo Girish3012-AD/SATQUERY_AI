@@ -12,6 +12,7 @@ from src.executor.change_specialist import ChangeSpecialist
 from src.executor.flood_specialist import FloodSpecialist
 from src.executor.multimodal_flood_specialist import MultimodalFloodSpecialist
 from src.executor.sar_specialist import SARSpecialist
+from src.executor.bi_temporal_water_specialist import BiTemporalWaterChangeSpecialist
 from src.executor.temporal_change_specialist import TemporalChangeSpecialist
 from src.executor.vqa_specialist import (
     DEFAULT_ADAPTER_PATH,
@@ -113,9 +114,11 @@ class SATQueryOrchestrator:
                     specialist_name="TemporalChangeSpecialist",
                     checkpoint="outputs/checkpoints/change_unet_dev.pt",
                     metadata={
-                        "remote_sensing_adapted": True,
+                        "remote_sensing_adapted": False,
+                        "evidence_grounded": True,
                         "model_type": "ChangeUNet",
                         "data_status": "development",
+                        "training_data": "SpaceNet4_synthetic_dev",
                         "confidence_calibrated": False,
                         "scientific_validation": False,
                         "fallback_available": True,
@@ -152,10 +155,14 @@ class SATQueryOrchestrator:
                     specialist_name="VqaSpecialist",
                     checkpoint=DEFAULT_ADAPTER_PATH,
                     metadata={
-                        "remote_sensing_adapted": True,
+                        "remote_sensing_adapted": False,
+                        "evidence_grounded": True,
                         "adapter_type": "PEFT_LORA",
+                        "adapter_role": "evidence_grounded_language",
                         "adapter_path": DEFAULT_ADAPTER_PATH,
                         "data_status": "development",
+                        "training_data": "SpaceNet4_synthetic_RS_VQA",
+                        "visual_sensitivity_proven": False,
                         "confidence_calibrated": False,
                         "scientific_validation": False,
                     },
@@ -171,6 +178,23 @@ class SATQueryOrchestrator:
                     status="AVAILABLE",
                     specialist_name="WaterSpecialist",
                     metadata={"sensor": "Sentinel-2", "analysis_type": "ndwi_grounding"},
+                )
+            )
+
+            registry.register(
+                ModelSpec(
+                    name="BiTemporal_NDWI_WaterChange",
+                    capability="bi_temporal_water_change",
+                    task_types=["temporal_analysis", "specialized_analysis"],
+                    modalities=["optical", "None"],
+                    status="AVAILABLE",
+                    specialist_name="BiTemporalWaterChangeSpecialist",
+                    metadata={
+                        "remote_sensing_adapted": False,
+                        "sensor": "Sentinel-2",
+                        "analysis_type": "quantitative_ndwi_differencing",
+                        "scientific_validation": False,
+                    }
                 )
             )
 
@@ -238,6 +262,7 @@ class SATQueryOrchestrator:
             # Custom callers can still inject their own specialists.
             self.register_specialist(SARSpecialist())
             self.register_specialist(TemporalChangeSpecialist())
+            self.register_specialist(BiTemporalWaterChangeSpecialist())
             self.register_specialist(ChangeSpecialist())
             self.register_specialist(FloodSpecialist())
             self.register_specialist(WaterSpecialist())
@@ -381,6 +406,81 @@ class SATQueryOrchestrator:
                 selected[capability] = specialist.__class__.__name__
 
         return len(missing) == 0, selected, missing
+
+    def _bind_inputs_to_plan(
+        self,
+        plan: EvidencePlan,
+        classified_assets: list[Any],
+        specialist_bindings: dict[str, Specialist]
+    ) -> dict[str, list[str] | dict]:
+        """
+        Input Binding Router.
+        Maps the global typed asset pool to specific plan steps based on
+        the declarative requirements of their specialists.
+        """
+        bindings: dict[str, list[str] | dict] = {}
+        
+        for step in plan.steps:
+            if step.operation not in ("specialist_inference", "temporal_analysis"):
+                continue
+            
+            # Identify the target specialist
+            specialist = specialist_bindings.get(step.task) or self._specialists.get(step.task)
+            if not specialist:
+                continue
+
+            profile = getattr(specialist, "REQUIRED_INPUT_PROFILE", None)
+            if not profile:
+                bindings[step.step_id] = [a.path for a in classified_assets]
+                continue
+
+            # Route by modality
+            req_modality = profile.get("modality")
+            req_temporal = profile.get("temporal")
+            req_count = profile.get("count")
+
+            candidates = classified_assets
+            if req_modality:
+                candidates = [a for a in candidates if a.modality == req_modality or a.modality == "unknown"]
+
+            bound_paths = []
+            
+            if req_temporal == "bi-temporal":
+                t1_assets = [a for a in candidates if a.temporal_tag == "T1"]
+                t2_assets = [a for a in candidates if a.temporal_tag == "T2"]
+                if t1_assets and t2_assets:
+                    # MUST strictly preserve T1 then T2 order
+                    bound_paths = [t1_assets[0].path, t2_assets[0].path]
+                else:
+                    bindings[step.step_id] = {
+                        "error": "Missing bi-temporal assets",
+                        "reason": f"{step.task} requires T1 and T2 {req_modality} assets.",
+                        "required": profile,
+                        "available": [a.model_dump() for a in classified_assets]
+                    }
+                    continue
+            else:
+                if req_count:
+                    # If specific count is requested (e.g., 1), favor T2 if temporal pool
+                    t2_assets = [a for a in candidates if a.temporal_tag == "T2"]
+                    if t2_assets:
+                        bound_paths = [a.path for a in t2_assets][:req_count]
+                    elif candidates:
+                        bound_paths = [a.path for a in candidates][:req_count]
+                else:
+                    bound_paths = [a.path for a in candidates]
+            
+            if req_count and len(bound_paths) != req_count:
+                bindings[step.step_id] = {
+                    "error": "Missing required assets",
+                    "reason": f"{step.task} requires {req_count} {req_modality} assets, found {len(bound_paths)}.",
+                    "required": profile,
+                    "available": [a.model_dump() for a in classified_assets]
+                }
+            else:
+                bindings[step.step_id] = bound_paths
+
+        return bindings
 
     def _route_specialists(
         self,
@@ -619,11 +719,24 @@ class SATQueryOrchestrator:
                 ],
             )
 
+        # Asset Classification & Input Binding Router
+        classified_assets = self.input_metadata_resolver.classify_assets(inputs)
+        input_bindings = self._bind_inputs_to_plan(
+            plan=plan,
+            classified_assets=classified_assets,
+            specialist_bindings=selected_bindings,
+        )
+
+        # Store for trace logging
+        self._last_classified_assets = classified_assets
+        self._last_input_bindings = input_bindings
+
         results = self.engine.execute(
             plan,
             inputs=inputs,
             specialist_bindings=selected_bindings,
             selected_models=selected_models,
+            input_bindings=input_bindings,
         )
 
         executed_steps = [result.step_id for result in results]
@@ -784,7 +897,11 @@ class SATQueryOrchestrator:
                 True,
                 "completed",
                 inputs,
-                {"resolved_input_paths": inputs},
+                {
+                    "resolved_input_paths": inputs,
+                    "classified_assets": [a.model_dump() for a in getattr(self, "_last_classified_assets", [])],
+                    "input_bindings": getattr(self, "_last_input_bindings", {})
+                },
                 [],
                 None,
                 None,
