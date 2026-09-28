@@ -94,8 +94,9 @@ DEMO_INPUT_REGISTRY: dict[str, list[str]] = {
         str(Path("data/samples/test.tif").resolve().as_posix()),
     ],
     "hero": [
-        str(Path("data/samples/test.tif").resolve().as_posix()),
-        str(Path("data/samples/test.tif").resolve().as_posix()),
+        str(Path("S2_T1.tif").resolve().as_posix()),
+        str(Path("S2_T2.tif").resolve().as_posix()),
+        str(Path("S1_GRD.tif").resolve().as_posix()),
     ],
 }
 

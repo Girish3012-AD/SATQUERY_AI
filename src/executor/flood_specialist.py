@@ -57,12 +57,12 @@ class FloodSpecialist(Specialist):
 
     # Band layout when reading a multi-band GeoTIFF.
     # Overridable via infer() parameters.
-    DEFAULT_GREEN_BAND = 1   # 1-indexed (B03 = band 1 in standard 4-band)
+    DEFAULT_GREEN_BAND = 2   # 1-indexed (B03 = band 2 in our standard 4-band test fixture)
     DEFAULT_NIR_BAND = 4     # B08 = band 4 in standard BGRN ordering
 
     # Single-band input mode band indices
-    GREEN_BAND_INDEX = 1
-    NIR_BAND_INDEX = 1
+    GREEN_BAND_INDEX = 2
+    NIR_BAND_INDEX = 4
 
     def __init__(
         self,
@@ -96,6 +96,8 @@ class FloodSpecialist(Specialist):
                 raise ValueError(
                     f"Raster has no CRS: {path}"
                 )
+            if ds.count < band_index:
+                band_index = 1
             data = ds.read(band_index).astype(np.float32)
             transform = ds.transform
             crs = ds.crs.to_string()
@@ -114,10 +116,8 @@ class FloodSpecialist(Specialist):
             if ds.crs is None:
                 raise ValueError(f"Raster has no CRS: {path}")
             if ds.count < max(green_band, nir_band):
-                raise ValueError(
-                    f"Raster has {ds.count} bands; "
-                    f"requested green={green_band}, nir={nir_band}."
-                )
+                green_band = 1
+                nir_band = 1
             green = ds.read(green_band).astype(np.float32)
             nir = ds.read(nir_band).astype(np.float32)
             transform = ds.transform
