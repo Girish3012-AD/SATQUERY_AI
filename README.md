@@ -18,6 +18,15 @@ $$\text{AI UNDERSTANDS} \longrightarrow \text{GIS COMPUTES} \longrightarrow \tex
 - **GIS COMPUTES**: Executes exact spectral, raster, vector, and SAR processing algorithms using specialized domain engines.
 - **GeoReason VERIFIES**: Formally validates emitted evidence objects against rule-based schema contracts (`GeoReasonVerifier`) before returning answers to the user.
 
+##ABSTRACT -> 
+SATQuery AI: Abstract / Description
+
+We built SATQuery AI because working with satellite imagery usually means jumping between different models, GIS tools, and technical workflows just to answer one simple question. We wanted to change that, so instead of asking a user to understand NDWI, change detection, SAR analysis, or spatial operations first, they can simply describe what they want in natural language and let SATQuery decide how the analysis should be carried out.
+
+Our system understands the query, plans the required workflow, selects the right remote-sensing specialists and geospatial tools, connects the correct input images to each step, and turns the resulting analysis into visual evidence on an interactive map. It can handle tasks such as image question answering, water-region detection, temporal change analysis, optical-SAR analysis, object detection, buffering, and spatial intersection.
+
+The main idea is simple: ask the question, not the algorithm. SATQuery aims to make Earth Observation analysis easier to access while keeping the results spatially grounded, traceable, and inspectable rather than giving users a black-box text answer.
+
 ---
 
 ## 🏛️ 2. Core Architecture
